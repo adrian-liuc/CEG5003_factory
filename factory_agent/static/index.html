@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Management Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f1115;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary-glow: rgba(0, 212, 255, 0.4);
+            --user-bubble: #1a5cff;
+            --bot-bubble: rgba(255, 255, 255, 0.08);
+            --text-main: #ffffff;
+            --text-muted: #8b92a5;
+            --border-radius: 18px;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            overflow: hidden;
+            background-image:
+                radial-gradient(circle at 15% 50%, rgba(26, 92, 255, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(0, 212, 255, 0.15), transparent 25%);
+            background-attachment: fixed;
+            background-size: cover;
+        }
+
+        /* App Layout */
+        .app-layout {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 260px;
+            background: rgba(15, 17, 21, 0.8);
+            border-right: 1px solid var(--glass-border);
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            backdrop-filter: blur(20px);
+            z-index: 10;
+        }
+
+        .sidebar-logo {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .nav-item {
+            padding: 14px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-muted);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
+            border: 1px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+        }
+
+        .nav-item.active {
+            background: var(--user-bubble);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(26, 92, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .main-content {
+            flex: 1;
+            position: relative;
+            height: 100%;
+        }
+
+        .view-panel {
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+        }
+
+        .view-panel.active {
+            display: flex;
+        }
+
+        .dashboard-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #111217;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            width: 96%;
+            max-width: 1600px;
+            height: 100%;
+            margin: 0 auto;
+            padding: 2vh 0;
+            box-sizing: border-box;
+            flex: 1;
+        }
+
+        /* Top Navigation */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 30px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            margin-bottom: 20px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #00e676;
+            box-shadow: 0 0 10px #00e676, 0 0 20px #00e676;
+            display: inline-block;
+        }
+
+        /* Chat Area */
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        }
+
+        .chat-box::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-box::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+            animation: fadeIn 0.3s ease-out;
+            margin-bottom: 8px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            align-items: flex-end;
+        }
+
+        .message.bot {
+            align-self: flex-start;
+        }
+
+        .bubble {
+            padding: 14px 20px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            word-wrap: break-word;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .message.user .bubble {
+            background: var(--user-bubble);
+            border-bottom-right-radius: 4px;
+            color: #fff;
+        }
+
+        .message.bot .bubble {
+            background: var(--bot-bubble);
+            border: 1px solid var(--glass-border);
+            border-bottom-left-radius: 4px;
+            backdrop-filter: blur(8px);
+        }
+
+        /* Markdown Styles */
+        .bubble p {
+            margin: 0 0 10px 0;
+        }
+
+        .bubble p:last-child {
+            margin: 0;
+        }
+
+        .bubble pre {
+            background: #000;
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid var(--glass-border);
+        }
+
+        .bubble code {
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .bubble table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .bubble th,
+        .bubble td {
+            border: 1px solid var(--glass-border);
+            padding: 8px;
+            text-align: left;
+        }
+
+        .bubble ul,
+        .bubble ol {
+            margin: 5px 0 10px 20px;
+            padding: 0;
+        }
+
+        /* Expandable Logs Styles */
+        .tool-log-container {
+            margin-top: 8px;
+            margin-left: 10px;
+        }
+
+        .log-details {
+            background: var(--bot-bubble);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            overflow: hidden;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .log-summary {
+            padding: 10px 14px;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+        }
+
+        .log-summary:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .log-summary svg {
+            transition: transform 0.3s ease;
+        }
+
+        .log-details[open] .log-summary svg {
+            transform: rotate(90deg);
+        }
+
+        .log-details[open] .log-summary {
+            border-bottom: 1px solid var(--glass-border);
+            color: var(--primary-glow);
+        }
+
+        .log-content {
+            padding: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .log-item {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border-left: 3px solid #1a5cff;
+        }
+
+        .log-item.result {
+            border-left: 3px solid #00e676;
+            background: rgba(0, 230, 118, 0.05);
+        }
+
+        .log-item.error {
+            border-left: 3px solid #ff4757;
+            background: rgba(255, 71, 87, 0.05);
+        }
+
+        .log-title {
+            font-family: Consolas, monospace;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #d2d2d2;
+        }
+
+        .log-pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: Consolas, monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 10px 14px;
+            background: var(--bot-bubble);
+            border-radius: 20px;
+            width: fit-content;
+            border: 1px solid var(--glass-border);
+            display: none;
+            margin-bottom: 10px;
+        }
+
+        .typing-indicator span {
+            width: 6px;
+            height: 6px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .typing-indicator span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0);
+            }
+
+            40% {
+                transform: scale(1);
+            }
+        }
+
+        /* Input Area */
+        .input-area {
+            display: flex;
+            gap: 12px;
+            padding: 20px 24px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius);
+            backdrop-filter: blur(12px);
+            margin-top: 10px;
+        }
+
+        .input-area input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+        }
+
+        .input-area input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .send-btn {
+            background: var(--user-bubble);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(26, 92, 255, 0.4);
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+            background: #2b68ff;
+        }
+
+        .send-btn:active {
+            transform: scale(0.95);
+        }
+
+        .send-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <span class="status-dot" id="system-status-dot"></span>
+                Production Management
+            </div>
+
+            <div class="nav-item active" onclick="switchTab('agent', this)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Agent Chat
+            </div>
+
+            <div class="nav-item" onclick="switchTab('dashboard', this)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="3" y1="9" x2="21" y2="9"></line>
+                    <line x1="9" y1="21" x2="9" y2="9"></line>
+                </svg>
+                Dashboard Area
+            </div>
+            
+            <div id="factory-status-container" style="margin-top: auto; padding-top: 15px; border-top: 1px solid var(--glass-border);">
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Live Plant Status</div>
+                <div id="factory-list" style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Inserted by JS -->
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- AI Agent View -->
+            <div id="agent-view" class="view-panel active">
+                <div class="container">
+                    <div class="header">
+                        <h1>
+                            Production Management Agent
+                        </h1>
+                        <div style="color: var(--text-muted); font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 4px;"
+                            onclick="resetSession()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                <path d="M3 3v5h5"></path>
+                            </svg>
+                            Reset Session
+                        </div>
+                    </div>
+
+                    <div class="chat-box" id="chatBox">
+                        <div class="message bot">
+                            <div class="bubble">
+                                <p>Hello! I am the <b>Production Management Agent</b>. I can monitor factory data,
+                                    adjust equipments, and recall historical operations. How can I assist you today?</p>
+                            </div>
+                        </div>
+
+                        <div class="typing-indicator" id="typingIndicator">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </div>
+
+                    <div class="input-area">
+                        <input type="text" id="userInput"
+                            placeholder="Send a command to the factory assistant (e.g., Get latest data from F1)"
+                            autocomplete="off" onkeypress="handleEnter(event)">
+                        <button class="send-btn" onclick="sendMessage()">
+                            <svg viewBox="0 0 24 24">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grafana Dashboard View -->
+            <div id="dashboard-view" class="view-panel">
+                <!-- IMPORTANT: Add &kiosk to your grafana URL to hide its top nav and focus strictly on the panels! -->
+                <iframe src="http://localhost:3000/d/adznbv2/production-management-dashboard?kiosk"
+                    class="dashboard-iframe" id="grafanaIframe" title="Grafana Dashboard"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab Switching logic
+        function switchTab(tabId, el) {
+            // Update nav styles
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            if (el) el.classList.add('active');
+
+            // Switch view panels
+            document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+            document.getElementById(tabId + '-view').classList.add('active');
+
+            // Scroll to bottom and focus if entering chat
+            if (tabId === 'agent') {
+                scrollToBottom();
+                document.getElementById('userInput').focus();
+            }
+        }
+
+        const chatBox = document.getElementById("chatBox");
+        const userInput = document.getElementById("userInput");
+        const typingIndicator = document.getElementById("typingIndicator");
+
+        // Dynamically set grafana url to avoid localhost vs 127.0.0.1 origin conflicts
+        document.addEventListener('DOMContentLoaded', () => {
+            const iframe = document.getElementById('grafanaIframe');
+            if (iframe && iframe.src.includes('localhost')) {
+                iframe.src = `http://${window.location.hostname}:3000/d/adznbv2/production-management-dashboard?kiosk`;
+            }
+        });
+
+        // Scroll to bottom
+        function scrollToBottom() {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Handles Enter key
+        function handleEnter(e) {
+            if (e.key === "Enter") {
+                sendMessage();
+            }
+        }
+
+        // Reset API
+        async function resetSession() {
+            if (!confirm("Are you sure you want to start a new conversation and clear the short-term memory?")) return;
+            try {
+                await fetch('/api/reset', { method: 'POST' });
+                const indicatorHtml = typingIndicator.outerHTML;
+                chatBox.innerHTML = `
+                <div class="message bot">
+                    <div class="bubble">
+                        <p>Session has been reset! Hello, I am the Production Management Agent. How can I help you today?</p>
+                    </div>
+                </div>` + indicatorHtml;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Format Logs into expandable HTML
+        function formatLogs(logs) {
+            if (!logs || logs.length === 0) return '';
+
+            let html = `
+            <div class="tool-log-container">
+                <details class="log-details">
+                    <summary class="log-summary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                        Backend executed ${logs.filter(l => l.type === 'call').length} tool call(s)
+                    </summary>
+                    <div class="log-content">`;
+
+            logs.forEach(l => {
+                if (l.type === 'call') {
+                    html += `
+                    <div class="log-item call">
+                        <div class="log-title">Tool Call: ${l.func_name}</div>
+                        <pre class="log-pre">${JSON.stringify(l.args, null, 2)}</pre>
+                    </div>`;
+                } else if (l.type === 'result') {
+                    html += `
+                    <div class="log-item result">
+                        <div class="log-title">Result: ${l.func_name}</div>
+                        <pre class="log-pre">${l.result}</pre>
+                    </div>`;
+                } else if (l.type === 'error') {
+                    html += `
+                    <div class="log-item error">
+                        <div class="log-title">Error</div>
+                        <pre class="log-pre">${l.content}</pre>
+                    </div>`;
+                } else {
+                    html += `<div class="log-item"><pre class="log-pre">${l}</pre></div>`;
+                }
+            });
+
+            html += `
+                    </div>
+                </details>
+            </div>`;
+            return html;
+        }
+
+        // Fake Streaming / Typewriter Effect (Improved for Tags)
+        function typeWriterHTML(container, htmlString, speed = 15) {
+            let i = 0;
+            container.innerHTML = '';
+            let charsPerTick = 2; // adjust speed for character chunking
+
+            return new Promise(resolve => {
+                let timer = setInterval(() => {
+                    if (i >= htmlString.length) {
+                        clearInterval(timer);
+                        container.innerHTML = htmlString;
+                        resolve();
+                        return;
+                    }
+
+                    let charsAdded = 0;
+                    while (i < htmlString.length && charsAdded < charsPerTick) {
+                        // Fast forward through complete HTML tags without typing them out
+                        if (htmlString[i] === '<') {
+                            while (i < htmlString.length && htmlString[i] !== '>') {
+                                i++;
+                            }
+                            i++; // include the '>'
+                        } else if (htmlString[i] === '&') {
+                            // Fast forward HTML entities like '&nbsp;' safely
+                            let end = i;
+                            while (end < htmlString.length && end < i + 10 && htmlString[end] !== ';') {
+                                end++;
+                            }
+                            if (end < htmlString.length && htmlString[end] === ';') {
+                                i = end + 1;
+                            } else {
+                                i++;
+                            }
+                            charsAdded++;
+                        } else {
+                            i++;
+                            charsAdded++;
+                        }
+                    }
+
+                    container.innerHTML = htmlString.substring(0, i);
+                    if (i % 4 === 0) scrollToBottom();
+                }, speed);
+            });
+        }
+
+        // Add message element
+        function appendMessage(sender, text, logs = [], animate = false) {
+            const msgDiv = document.createElement("div");
+            msgDiv.className = `message ${sender}`;
+
+            let contentHtml = text;
+            if (sender === 'bot') {
+                try {
+                    contentHtml = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                } catch (e) {
+                    console.error("Markdown parse failed:", e);
+                    contentHtml = text;
+                }
+            }
+
+            const bubbleDiv = document.createElement("div");
+            bubbleDiv.className = "bubble";
+
+            const logsStr = sender === 'bot' ? formatLogs(logs) : '';
+            const logsDiv = document.createElement("div");
+            logsDiv.innerHTML = logsStr;
+
+            msgDiv.appendChild(bubbleDiv);
+            if (logsStr && logsDiv.firstElementChild) {
+                msgDiv.appendChild(logsDiv.firstElementChild);
+            }
+
+            const indicator = document.getElementById("typingIndicator");
+            if (indicator && indicator.parentNode === chatBox) {
+                chatBox.insertBefore(msgDiv, indicator);
+            } else {
+                chatBox.appendChild(msgDiv);
+            }
+
+            if (sender === 'bot' && animate) {
+                typeWriterHTML(bubbleDiv, contentHtml, 15);
+            } else {
+                bubbleDiv.innerHTML = contentHtml;
+                scrollToBottom();
+            }
+        }
+
+        // Send Message
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            appendMessage('user', text);
+            userInput.value = "";
+
+            const indicator = document.getElementById("typingIndicator");
+            if (indicator) indicator.style.display = "flex";
+            scrollToBottom();
+
+            try {
+                const resp = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: text })
+                });
+
+                const data = await resp.json();
+                if (indicator) indicator.style.display = "none";
+
+                appendMessage('bot', data.reply, data.logs || [], true);
+
+                if (data.pending_approvals && data.pending_approvals.length > 0) {
+                    displayApprovalRequest(data.pending_approvals);
+                }
+            } catch (err) {
+                if (indicator) indicator.style.display = "none";
+                appendMessage('bot', "Server connection failed. Make sure backend is running.");
+            }
+        }
+
+        // Display Approval Request Widget
+        function displayApprovalRequest(approvals) {
+            const msgDiv = document.createElement("div");
+            msgDiv.className = "message bot";
+            // msgDiv.id = "approval-" + Date.now();
+            const containerId = "approval-" + Math.floor(Math.random() * 100000);
+            msgDiv.id = containerId;
+
+            let htmlStr = `<div class="bubble"><p><b>Action Approval Required</b></p>`;
+
+            approvals.forEach((app) => {
+                let badgeColor = "#ffcc00";
+                let title = "SYSTEM ACTION";
+                let details = "";
+                let bgStyle = "rgba(0,0,0,0.3)";
+
+                if (app.func_name === "emergency_shutdown") {
+                    badgeColor = "#ff4757";
+                    title = "EMERGENCY SHUTDOWN INITIATED";
+                    bgStyle = "linear-gradient(135deg, rgba(255, 71, 87, 0.2) 0%, rgba(0, 0, 0, 0.4) 100%)";
+                    details = `<div style="color:#ffcc00; font-weight:bold; margin-bottom:4px;">Target: <span style="color:#fff;">${app.func_args.factory_id.toUpperCase()}</span></div>
+                               <div style="color:#ff4757; font-size:0.85rem;">ACTION: Force shutdown and enter maintenance protocol.</div>`;
+                } else if (app.func_name === "set_plan_quantity") {
+                    badgeColor = "#00d2ff";
+                    title = "PRODUCTION PLAN OVERRIDE";
+                    bgStyle = "linear-gradient(135deg, rgba(0, 210, 255, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%)";
+                    details = `<div style="color:#8b92a5;">Target Factory: <span style="color:#fff; font-weight:bold;">${app.func_args.factory_id}</span></div>
+                               <div style="color:#8b92a5;">New Target Quantity: <span style="color:#00d2ff; font-weight:bold;">${app.func_args.quantity}</span> units</div>`;
+                } else if (app.func_name === "set_production_speed") {
+                    badgeColor = "#00e676";
+                    title = "KINETIC SPEED ADJUSTMENT";
+                    bgStyle = "linear-gradient(135deg, rgba(0, 230, 118, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%)";
+                    details = `<div style="color:#8b92a5;">Target Factory: <span style="color:#fff; font-weight:bold;">${app.func_args.factory_id}</span></div>
+                               <div style="color:#8b92a5;">InterArrival Time: <span style="color:#00e676; font-weight:bold;">${app.func_args.speed} SEC</span></div>`;
+                } else {
+                    details = `<pre style="margin: 0; font-size: 0.8rem; color: #aaa; white-space: pre-wrap;">${JSON.stringify(app.func_args, null, 2)}</pre>`;
+                }
+
+                htmlStr += `<div class="approval-item" style="background: ${bgStyle}; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid ${badgeColor}; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                    <div style="font-family: 'Inter', sans-serif; font-weight: 700; margin-bottom: 8px; color: ${badgeColor}; letter-spacing: 0.5px;">${title}</div>
+                    <div style="font-family: Consolas, monospace; font-size: 0.9rem;">${details}</div>
+                </div>`;
+            });
+
+            // Generate safe json string for onclick handler
+            const safeApprovals = JSON.stringify(approvals).replace(/"/g, '&quot;');
+
+            htmlStr += `<div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="submitApproval('${containerId}', ${safeApprovals}, true)" style="background: #00e676; color: #000; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; flex: 1; transition: all 0.2s;">Approve All</button>
+                <button onclick="submitApproval('${containerId}', ${safeApprovals}, false)" style="background: #ff4757; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; flex: 1; transition: all 0.2s;">Reject All</button>
+            </div></div>`;
+
+            msgDiv.innerHTML = htmlStr;
+
+            const indicator = document.getElementById("typingIndicator");
+            if (indicator && indicator.parentNode === chatBox) {
+                chatBox.insertBefore(msgDiv, indicator);
+            } else {
+                chatBox.appendChild(msgDiv);
+            }
+            scrollToBottom();
+        }
+
+        // Submit Approval decision to API
+        async function submitApproval(containerId, approvals, isApproved) {
+            // Disable buttons to avoid duplicate submissions
+            const container = document.getElementById(containerId);
+            if (container) {
+                const buttons = container.querySelectorAll('button');
+                buttons.forEach(b => {
+                    b.disabled = true;
+                    b.style.opacity = '0.5';
+                    b.style.cursor = 'not-allowed';
+                });
+            }
+
+            const approveItems = approvals.map(app => ({
+                tool_call_id: app.tool_call_id,
+                approved: isApproved
+            }));
+
+            // Re-show typing indicator
+            const indicator = document.getElementById("typingIndicator");
+            if (indicator) indicator.style.display = "flex";
+            scrollToBottom();
+
+            try {
+                const resp = await fetch("/api/approve", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ approvals: approveItems })
+                });
+
+                const data = await resp.json();
+                if (indicator) indicator.style.display = "none";
+
+                appendMessage('bot', data.reply, data.logs || [], true);
+
+                if (data.pending_approvals && data.pending_approvals.length > 0) {
+                    displayApprovalRequest(data.pending_approvals);
+                }
+            } catch (err) {
+                if (indicator) indicator.style.display = "none";
+                appendMessage('bot', "Server connection failed during approval submission.");
+            }
+        }
+
+        // Live updates for factory statuses
+        async function updateFactoryStatus() {
+            try {
+                const resp = await fetch('/api/status');
+                const data = await resp.json();
+                
+                const list = document.getElementById('factory-list');
+                const dot = document.getElementById('system-status-dot');
+                if(!list) return;
+
+                if(data.detail) {
+                    throw new Error("API returned detail: " + typeof data.detail === 'string' ? data.detail : "Error");
+                }
+
+                let html = '';
+                let hasIssues = false;
+                
+                for(let f in data) {
+                    if (f === "detail") continue;
+                    const info = data[f];
+                    const isRunning = info.running;
+                    if(!isRunning) hasIssues = true;
+                    
+                    const color = isRunning ? '#00e676' : '#ff4757';
+                    const text = isRunning ? `RUNNING` : 'UNDER MAINTENANCE';
+                    
+                    html += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 8px; border-left: 3px solid ${color};">
+                        <strong style="color: #fff; text-transform: uppercase;">${f.split('_')[0]}</strong>
+                        <span style="font-size: 0.75rem; color: ${color}; font-weight: bold;">${text}</span>
+                    </div>`;
+                }
+                list.innerHTML = html;
+                if(dot) {
+                    // Turn dot red if any factory is down, green otherwise
+                    dot.style.backgroundColor = hasIssues ? '#ff4757' : '#00e676';
+                    dot.style.boxShadow = hasIssues ? '0 0 10px #ff4757, 0 0 20px #ff4757' : '0 0 10px #00e676, 0 0 20px #00e676';
+                }
+            } catch(e) {
+                console.warn('Failed to fetch factory status', e);
+            }
+        }
+
+        // Initial fetch and start polling
+        updateFactoryStatus();
+        setInterval(updateFactoryStatus, 3000);
+
+    </script>
+</body>
+
+</html>

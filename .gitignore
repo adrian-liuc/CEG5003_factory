@@ -1,0 +1,26 @@
+# Environment
+.env
+factory_agent/.env
+factory_agent/.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+bridge.pid
+
+# Memory (personal data)
+factory_agent/memory/history.md
+factory_agent/memory/important_memory.md
+factory_agent/memory/memory.db
+
+# Simulation runtime files (written by agent at runtime)
+simulation_files/factory_files/MaxNum/
+simulation_files/factory_files/InterArrivalTime/
+
+# Artifacts
+*.baiduyun.uploading.cfg
+# *.exe  # kept: sensor.exe
