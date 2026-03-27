@@ -4,7 +4,7 @@ AI-powered factory production management system integrated with JaamSim simulati
 
 ## Components
 
-- **[factory_agent/](factory_agent/README.md)** — LLM agent for production control and monitoring
+- **factory_agent/** — LLM agent for production control and monitoring
 - **mqtt_bridge/** — Bridges JaamSim MQTT output to InfluxDB
 - **simulation_files/** — JaamSim simulation config and assets
 
