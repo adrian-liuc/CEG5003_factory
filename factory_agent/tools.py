@@ -129,8 +129,8 @@ def execute_function(name, arguments):
 
     elif name == "save_memory":
         return memory_service.write_memory(
-            arguments["content"],
             arguments.get("filename", "history.md"),
+            arguments["content"],
             arguments.get("mode", "append")
         )
 
