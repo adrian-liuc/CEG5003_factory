@@ -21,11 +21,11 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "read_memory_file",
-            "description": "Read the entire content of a specific memory file. Available: 'bot_profile.md', 'user_profile.md', 'important_memory.md', 'history.md'.",
+            "description": "Read the entire content of a specific memory file. Available: 'agent_profile.md', 'factory_knowledge.md', 'session_log.md', 'history.md'.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "filename": {"type": "string", "description": "Filename, e.g. 'bot_profile.md'"}
+                    "filename": {"type": "string", "description": "Filename, e.g. 'factory_knowledge.md'"}
                 },
                 "required": ["filename"]
             }
@@ -35,7 +35,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "save_memory",
-            "description": "Save information to memory. filename options: 'bot_profile.md', 'user_profile.md', 'important_memory.md', 'history.md'.",
+            "description": "Save information to memory. filename options: 'agent_profile.md', 'factory_knowledge.md', 'session_log.md', 'history.md'.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -102,13 +102,40 @@ TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "get_factory_data",
-            "description": "Query factory production data from InfluxDB for a given time range.",
+            "name": "get_trend_data",
+            "description": "Get per-minute production data aggregated into 1-minute buckets for trend analysis. Use when the user asks about trends, patterns, rising/falling output, or wants to see how production changed over time (e.g. '趋势', '变化', 'trend', 'increasing', 'decreasing').",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "factory_id": {"type": "string", "description": "Factory: 'fa', 'fb', 'fc', 'fd', or 'all'"},
-                    "minutes": {"type": "integer", "description": "Query data from the past N minutes. Default is 5."}
+                    "minutes": {"type": "integer", "description": "How many minutes of history to fetch. Default is 10."}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_production_delta",
+            "description": "Get units produced within a time window (last value minus first value of each production metric). Use when the user asks about production over a time period: '过去N分钟', '最近N分钟', 'past N minutes', 'last N minutes'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "factory_id": {"type": "string", "description": "Factory: 'fa', 'fb', 'fc', 'fd', or 'all'"},
+                    "minutes": {"type": "integer", "description": "Time window in minutes. Default is 1."}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_status",
+            "description": "Get the latest value of every metric across all factories (one data point per metric). Use for: logistics/waiting queue queries ('物流', '上下游', '等待队列', 'wait queue'), and overall production overview ('总体情况', '生产总览', 'overview').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "factory_id": {"type": "string", "description": "Factory: 'fa', 'fb', 'fc', 'fd', or 'all'. Default is 'all'."}
                 }
             }
         }
@@ -146,10 +173,21 @@ def execute_function(name, arguments):
     elif name == "emergency_shutdown":
         return factory_service.emergency_shutdown(arguments["factory_id"])
 
-    elif name == "get_factory_data":
-        return influx_service.get_factory_data(
+    elif name == "get_trend_data":
+        return influx_service.get_trend_data(
             arguments.get("factory_id", "all"),
-            arguments.get("minutes", 5)
+            arguments.get("minutes", 10)
+        )
+
+    elif name == "get_production_delta":
+        return influx_service.get_production_delta(
+            arguments.get("factory_id", "all"),
+            arguments.get("minutes", 1)
+        )
+
+    elif name == "get_current_status":
+        return influx_service.get_current_status(
+            arguments.get("factory_id", "all")
         )
 
     return "Unknown function"

@@ -1,0 +1,155 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": 3,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "influxdb", "uid": "dffdppsmpfpj4d"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "pointSize": 1,
+            "lineInterpolation": "smooth",
+            "drawStyle": "line",
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "displayName": "${__field.labels.factory_id} — ${__field.labels.sub_topic}",
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": ["last"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "influxdb", "uid": "dffdppsmpfpj4d"},
+          "query": "from(bucket: \"factory_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"factory\")\n  |> filter(fn: (r) => r[\"sub_topic\"] == \"p1\" or r[\"sub_topic\"] == \"p2\" or r[\"sub_topic\"] == \"p3\" or r[\"sub_topic\"] == \"p4\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "refId": "A"
+        }
+      ],
+      "title": "Raw Material Output",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "influxdb", "uid": "dffdppsmpfpj4d"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "pointSize": 1,
+            "lineInterpolation": "smooth",
+            "drawStyle": "line",
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "displayName": "${__field.labels.factory_id} — ${__field.labels.sub_topic}",
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": ["last"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "influxdb", "uid": "dffdppsmpfpj4d"},
+          "query": "from(bucket: \"factory_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"factory\")\n  |> filter(fn: (r) => r[\"sub_topic\"] == \"p12\" or r[\"sub_topic\"] == \"p13\" or r[\"sub_topic\"] == \"p23\" or r[\"sub_topic\"] == \"p234\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "refId": "A"
+        }
+      ],
+      "title": "Assembly Output",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "influxdb", "uid": "dffdppsmpfpj4d"},
+      "description": "Shows pending inventory waiting for inter-factory transport.\n\n⚠ Threshold lines (dashed):\n• Orange dashed = Warning: queue > 10\n• Red dashed = Critical: queue > 50, severe bottleneck",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "pointSize": 3,
+            "lineInterpolation": "smooth",
+            "drawStyle": "line",
+            "showPoints": "auto",
+            "spanNulls": false,
+            "thresholdsStyle": {"mode": "dashed"}
+          },
+          "displayName": "${__field.labels.factory_id} — ${__field.labels.sub_topic}",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 10},
+              {"color": "red", "value": 50}
+            ]
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 10},
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": ["last"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "influxdb", "uid": "dffdppsmpfpj4d"},
+          "query": "from(bucket: \"factory_data\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"factory\")\n  |> filter(fn: (r) => r[\"sub_topic\"] == \"p1_wait_queue\" or r[\"sub_topic\"] == \"p2_wait_queue\" or r[\"sub_topic\"] == \"p23_wait_queue\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "refId": "A"
+        }
+      ],
+      "title": "Logistics Waiting Queue",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {"list": []},
+  "time": {"from": "now-5m", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Production Management Dashboard",
+  "uid": "adznbv2",
+  "version": 31
+}

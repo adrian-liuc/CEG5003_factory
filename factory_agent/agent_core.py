@@ -7,7 +7,7 @@ client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 def init_session():
     """加载记忆文件，初始化消息历史"""
     profiles = []
-    for filename in ["bot_profile.md", "user_profile.md", "important_memory.md"]:
+    for filename in ["agent_profile.md", "factory_knowledge.md", "session_log.md"]:
         content = memory_service.read_file(filename)
         if "does not exist" not in content.lower():
             profiles.append(content)
@@ -33,7 +33,7 @@ def summarize_history(messages):
         temperature=0.1
     )
     summary = response.choices[0].message.content
-    memory_service.write_memory("important_memory.md", summary, mode="append")
+    memory_service.write_memory("session_log.md", summary, mode="append")
 
     system_msg = messages[0] if messages and messages[0]["role"] == "system" else None
     recent = messages[-MAX_HISTORY_KEEP:]
