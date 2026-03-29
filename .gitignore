@@ -18,8 +18,8 @@ factory_agent/memory/important_memory.md
 factory_agent/memory/memory.db
 
 # Simulation runtime files (written by agent at runtime)
-simulation_files/factory_files/MaxNum/
-simulation_files/factory_files/InterArrivalTime/
+# simulation_files/factory_files/MaxNum/
+# simulation_files/factory_files/InterArrivalTime/
 
 # Artifacts
 *.baiduyun.uploading.cfg
