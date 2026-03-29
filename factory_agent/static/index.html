@@ -820,6 +820,12 @@
                     bgStyle = "linear-gradient(135deg, rgba(0, 230, 118, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%)";
                     details = `<div style="color:#8b92a5;">Target Factory: <span style="color:#fff; font-weight:bold;">${app.func_args.factory_id}</span></div>
                                <div style="color:#8b92a5;">InterArrival Time: <span style="color:#00e676; font-weight:bold;">${app.func_args.speed} SEC</span></div>`;
+                } else if (app.func_name === "restart_production") {
+                    badgeColor = "#00d2ff";
+                    title = "PRODUCTION RESTART";
+                    bgStyle = "linear-gradient(135deg, rgba(0, 210, 255, 0.15) 0%, rgba(0, 0, 0, 0.4) 100%)";
+                    details = `<div style="color:#8b92a5;">Target Factory: <span style="color:#fff; font-weight:bold;">${app.func_args.factory_id.toUpperCase()}</span></div>
+                               <div style="color:#00d2ff; font-size:0.85rem;">ACTION: Restore pre-shutdown plan quantity from backup.</div>`;
                 } else {
                     details = `<pre style="margin: 0; font-size: 0.8rem; color: #aaa; white-space: pre-wrap;">${JSON.stringify(app.func_args, null, 2)}</pre>`;
                 }

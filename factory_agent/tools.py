@@ -102,6 +102,20 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "restart_production",
+            "description": "Restart a factory after emergency shutdown by restoring its pre-shutdown plan quantity. Use when the user says 'restart', 'resume', 'end maintenance', 'bring back online', or 'restore production' after a shutdown.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "factory_id": {"type": "string", "description": "Factory ID: 'fa_p1', 'fb_p2', 'fc_p3', 'fd_p4', or 'all'"}
+                },
+                "required": ["factory_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_trend_data",
             "description": "Get per-minute production data aggregated into 1-minute buckets for trend analysis. Use when the user asks about trends, patterns, rising/falling output, or wants to see how production changed over time (e.g. '趋势', '变化', 'trend', 'increasing', 'decreasing').",
             "parameters": {
@@ -142,7 +156,7 @@ TOOLS = [
     }
 ]
 
-NEEDS_APPROVAL = {"set_plan_quantity", "set_production_speed", "emergency_shutdown"}
+NEEDS_APPROVAL = {"set_plan_quantity", "set_production_speed", "emergency_shutdown", "restart_production"}
 
 def execute_function(name, arguments):
     if name == "search_memory":
@@ -172,6 +186,9 @@ def execute_function(name, arguments):
 
     elif name == "emergency_shutdown":
         return factory_service.emergency_shutdown(arguments["factory_id"])
+
+    elif name == "restart_production":
+        return factory_service.restart_production(arguments["factory_id"])
 
     elif name == "get_trend_data":
         return influx_service.get_trend_data(

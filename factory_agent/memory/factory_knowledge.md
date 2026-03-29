@@ -78,3 +78,9 @@ Add a one-line bottleneck note after Table 3 only if any queue value > 10.
 - **Production Speed** (`set_production_speed`): InterArrival time in seconds, numeric only, e.g. `4`. No unit suffix.
 - **Planned Quantity** (`set_plan_quantity`): Integer, total targeted production count.
 - **Factory IDs**: `fa_p1`, `fb_p2`, `fc_p3`, `fd_p4`, or `all`.
+
+## Emergency Shutdown & Restore
+- `emergency_shutdown` sets factory maxnum to 0 **and saves the previous quantity as a backup**.
+- To resume after shutdown, always use `restart_production` — it reads the backup and restores the original plan quantity automatically.
+- **Never use `set_production_speed` to restore from a shutdown.** Speed and quantity are independent parameters.
+- If the user says "restart", "resume", "end maintenance", "bring back online", "restore production", or similar → call `restart_production`, not `set_plan_quantity` or `set_production_speed`.

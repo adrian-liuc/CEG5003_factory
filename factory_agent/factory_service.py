@@ -7,9 +7,11 @@ class FactoryService:
 
         self.maxnum_dir = os.path.join(self.factory_files_dir, "MaxNum")
         self.inter_arrival_dir = os.path.join(self.factory_files_dir, "InterArrivalTime")
+        self.backup_dir = os.path.join(self.factory_files_dir, "MaxNum_backup")
 
         os.makedirs(self.maxnum_dir, exist_ok=True)
         os.makedirs(self.inter_arrival_dir, exist_ok=True)
+        os.makedirs(self.backup_dir, exist_ok=True)
 
     def set_plan_quantity(self, factory_id, quantity):
         """设置工厂计划生产数量（maxnum）"""
@@ -50,15 +52,46 @@ class FactoryService:
             return f"Fail: Write error - {e}"
 
     def emergency_shutdown(self, factory_id):
-        """紧急停产检修：将指定工厂的 maxnum 设置为 0"""
+        """紧急停产检修：将指定工厂的 maxnum 设置为 0，并备份原值"""
         targets = self.factories if factory_id.lower() == "all" else [factory_id.lower()]
         for t in targets:
             if t not in self.factories:
                 return f"Error: Invalid factory id '{t}'. Available: {', '.join(self.factories)}, or 'all'."
+        # Save current maxnum to backup before zeroing
+        for t in targets:
+            src = os.path.join(self.maxnum_dir, f"{t}_maxnum.txt")
+            dst = os.path.join(self.backup_dir, f"{t}_maxnum_backup.txt")
+            if os.path.exists(src):
+                with open(src, "r", encoding="utf-8") as f:
+                    current = f.read().strip()
+                if current != "0":  # Don't overwrite backup with 0
+                    with open(dst, "w", encoding="utf-8") as f:
+                        f.write(current)
         res = self.set_plan_quantity(factory_id, 0)
         if "Success" in res:
             return f"Success: EMERGENCY SHUTDOWN activated for {factory_id}. MaxNum set to 0."
         return res
+
+    def restart_production(self, factory_id):
+        """恢复生产：从备份中读取原计划产量并写回"""
+        targets = self.factories if factory_id.lower() == "all" else [factory_id.lower()]
+        for t in targets:
+            if t not in self.factories:
+                return f"Error: Invalid factory id '{t}'. Available: {', '.join(self.factories)}, or 'all'."
+        results = []
+        for t in targets:
+            backup_path = os.path.join(self.backup_dir, f"{t}_maxnum_backup.txt")
+            if not os.path.exists(backup_path):
+                results.append(f"{t}: No backup found — use set_plan_quantity to manually restore.")
+                continue
+            with open(backup_path, "r", encoding="utf-8") as f:
+                original = f.read().strip()
+            res = self.set_plan_quantity(t, original)
+            if "Success" in res:
+                results.append(f"{t}: Restored plan quantity to {original}.")
+            else:
+                results.append(f"{t}: Restore failed — {res}")
+        return "\n".join(results)
 
     def get_status(self):
         """获取所有工厂当前状态"""
