@@ -9,8 +9,7 @@ class InfluxService:
         self.query_api = self.client.query_api()
 
     def get_trend_data(self, factory_id: str = None, minutes: int = 10):
-        """按分钟聚合生产数据，用于趋势分析。每分钟返回一个数据点（该分钟末的值），
-        agent 可据此判断产量是上升、下降还是平稳。"""
+        """Per-minute production totals for trend analysis (last value per minute window)."""
         filter_str = '|> filter(fn: (r) => r["_measurement"] == "factory")'
         if factory_id and factory_id.lower() != "all":
             filter_str += f' |> filter(fn: (r) => r["factory_id"] == "{factory_id}")'
@@ -69,8 +68,7 @@ class InfluxService:
             return f"Error fetching trend data: {e}"
 
     def get_production_delta(self, factory_id: str = None, minutes: int = 1):
-        """计算指定时间段内各工厂的实际产量（last - first）以及当前物流队列（最新值）。
-        使用与 get_factory_data 相同的查询方式，在 Python 层按 metric 名称分类处理。"""
+        """Units produced in the given window (last - first per metric)."""
         filter_str = '|> filter(fn: (r) => r["_measurement"] == "factory")'
         if factory_id and factory_id.lower() != "all":
             filter_str += f' |> filter(fn: (r) => r["factory_id"] == "{factory_id}")'
@@ -132,7 +130,7 @@ class InfluxService:
             return f"Error fetching production delta: {e}"
 
     def get_current_status(self, factory_id: str = None):
-        """返回每个 metric 的最新值（用于物流队列查询和生产总览）。"""
+        """Latest value for every metric (used for queue queries and production overview)."""
         filter_str = '|> filter(fn: (r) => r["_measurement"] == "factory")'
         if factory_id and factory_id.lower() != "all":
             filter_str += f' |> filter(fn: (r) => r["factory_id"] == "{factory_id}")'

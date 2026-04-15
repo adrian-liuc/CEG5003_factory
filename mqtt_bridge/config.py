@@ -4,7 +4,7 @@ from pathlib import Path
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-# MQTT 配置
+# MQTT
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 MQTT_TOPICS = [
@@ -14,7 +14,7 @@ MQTT_TOPICS = [
     ("factory/fd/#", 0),
 ]
 
-# InfluxDB 配置
+# InfluxDB
 INFLUXDB_URL = os.getenv("INFLUXDB_URL")
 INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN")
 INFLUXDB_ORG = os.getenv("INFLUXDB_ORG")

@@ -14,7 +14,7 @@ class FactoryService:
         os.makedirs(self.backup_dir, exist_ok=True)
 
     def set_plan_quantity(self, factory_id, quantity):
-        """设置工厂计划生产数量（maxnum）"""
+        """Write planned production quantity (maxnum) to file."""
         targets = self.factories if factory_id.lower() == "all" else [factory_id.lower()]
         for t in targets:
             if t not in self.factories:
@@ -33,7 +33,7 @@ class FactoryService:
             return f"Fail: Write error - {e}"
 
     def set_production_speed(self, factory_id, speed_interval):
-        """设置工厂生产速度（InterArrival time）"""
+        """Write InterArrival time (seconds) to file."""
         targets = self.factories if factory_id.lower() == "all" else [factory_id.lower()]
         for t in targets:
             if t not in self.factories:
@@ -52,7 +52,7 @@ class FactoryService:
             return f"Fail: Write error - {e}"
 
     def emergency_shutdown(self, factory_id):
-        """紧急停产检修：将指定工厂的 maxnum 设置为 0，并备份原值"""
+        """Set maxnum to 0 and back up the previous value."""
         targets = self.factories if factory_id.lower() == "all" else [factory_id.lower()]
         for t in targets:
             if t not in self.factories:
@@ -73,7 +73,7 @@ class FactoryService:
         return res
 
     def restart_production(self, factory_id):
-        """恢复生产：从备份中读取原计划产量并写回"""
+        """Restore maxnum from backup file."""
         targets = self.factories if factory_id.lower() == "all" else [factory_id.lower()]
         for t in targets:
             if t not in self.factories:
@@ -94,7 +94,6 @@ class FactoryService:
         return "\n".join(results)
 
     def get_status(self):
-        """获取所有工厂当前状态"""
         status = {}
         for f in self.factories:
             try:

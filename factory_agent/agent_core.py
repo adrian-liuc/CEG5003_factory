@@ -5,7 +5,7 @@ from config import API_KEY, BASE_URL, MODEL_NAME, MAX_CONTEXT_TOKENS, MAX_HISTOR
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 def init_session():
-    """加载记忆文件，初始化消息历史"""
+    """Load memory files and initialize message history."""
     profiles = []
     for filename in ["agent_profile.md", "factory_knowledge.md", "session_log.md"]:
         content = memory_service.read_file(filename)
@@ -15,7 +15,7 @@ def init_session():
     return [{"role": "system", "content": system_prompt}]
 
 def count_tokens(messages):
-    """估算 token 数（字符数 × 0.1）"""
+    """Rough token estimate: char count × 0.1"""
     total = 0
     for msg in messages:
         content = msg.get("content", "") or ""
@@ -23,7 +23,7 @@ def count_tokens(messages):
     return total
 
 def summarize_history(messages):
-    """超出上下文限制时总结历史"""
+    """Summarize history when context limit is exceeded."""
     print(f"\n[System] Token limit exceeded, summarizing memory...")
     summary_prompt = {"role": "user", "content": "Summarize the key information, decisions, and user preferences from the conversation above. Keep only important facts, ignore chit-chat."}
     response = client.chat.completions.create(
