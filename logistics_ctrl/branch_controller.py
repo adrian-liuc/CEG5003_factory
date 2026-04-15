@@ -1,36 +1,26 @@
-"""
-Branch Controller
-=================
-Dynamically adjusts routing branch files every INTERVAL seconds based on
-logistics wait-queue sizes read from InfluxDB.
-
-Branch file reference
----------------------
-branch1.txt  — Branch1: truck leaving FA
-    1 = road1_go  → car_park2_in  → FB  (deliver P1 to FB)
-    2 = road2_go  → car_park3_in  → FC  (deliver P1 to FC)
-
-branch2.txt  — Branch2: truck at FB after P1 delivery
-    1 = car_park2_out1 → upload_p12 → FD  (load P12, deliver to FD)
-    2 = car_park2_out2 → upload_p2  → FC  (load P2,  deliver to FC)
-    3 = road1_back                  → FA  (empty return)
-
-branch3.txt  — Branch3: truck at FC
-    1 = C2D        → upload_p23 → FD  (load P23, deliver to FD)
-    2 = road2_back              → FA  (empty return)
-    3 = road5_back              → FB  (empty return)
-
-branch4.txt  — Branch4: truck at FD after P23 delivery
-    1 = road3_back           → FB
-    2 = road4_back           → FC area (car3_gate → Branch3)
-
-Supply chain covered
----------------------
-  FA → FB  (P1)   : branch1=1
-  FA → FC  (P1)   : branch1=2
-  FB → FC  (P2)   : branch1=1, branch2=2
-  FC → FD  (P23)  : branch3=1  (needs fc_p23 queue >= 2 to pass car3_gate)
-"""
+# Branch Controller
+# Reads wait-queue sizes from InfluxDB every INTERVAL seconds and writes
+# branch routing files accordingly.
+#
+# branch1.txt  — truck leaving FA
+#   1 = road1_go  → car_park2_in  → FB  (P1 to FB)
+#   2 = road2_go  → car_park3_in  → FC  (P1 to FC)
+#
+# branch2.txt  — truck at FB after P1 delivery
+#   1 = car_park2_out1 → upload_p12 → FD  (P12 to FD)
+#   2 = car_park2_out2 → upload_p2  → FC  (P2 to FC)
+#   3 = road1_back                  → FA  (empty return)
+#
+# branch3.txt  — truck at FC
+#   1 = C2D        → upload_p23 → FD  (P23 to FD)
+#   2 = road2_back              → FA  (empty return)
+#   3 = road5_back              → FB  (empty return)
+#
+# branch4.txt  — truck at FD after P23 delivery
+#   1 = road3_back  → FB
+#   2 = road4_back  → FC area (car3_gate → Branch3)
+#
+# Supply chain: FA→FB (P1): b1=1 | FA→FC (P1): b1=2 | FB→FC (P2): b1=1,b2=2 | FC→FD (P23): b3=1
 
 import os
 import json
@@ -40,7 +30,6 @@ from datetime import datetime
 from dotenv import load_dotenv
 from influxdb_client import InfluxDBClient
 
-# ── config ────────────────────────────────────────────────────────────────────
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 INFLUXDB_URL    = os.getenv("INFLUXDB_URL",    "http://localhost:8086")
@@ -56,20 +45,11 @@ INTERVAL  = 3     # seconds between each routing update (must NOT align with jou
 # Thresholds — tune these to match your simulation speed
 P23_THRESHOLD = 2   # fc p23_wait_queue: minimum P23 at FC to justify a FD delivery run
 
-# branch1 rotation period: every BRANCH1_PERIOD cycles, 1 cycle sends truck to FC
-# With INTERVAL=3s and FA→FB journey ≈15s (5 cycles):
-#   trucks return at cycle N+5 → (N+5) % BRANCH1_PERIOD determines destination.
-#   BRANCH1_PERIOD=3 means 5%3=2 → consistently lands on the FC slot.
-BRANCH1_PERIOD = 3   # 2 out of 3 cycles go to FB, 1 out of 3 goes to FC
+BRANCH1_PERIOD = 3   # 2/3 cycles → FB, 1/3 → FC
 
 
-# ── InfluxDB helpers ──────────────────────────────────────────────────────────
 def read_queues(query_api) -> dict:
-    """
-    Return the latest value for each wait-queue sub_topic.
-    Keys: 'p1_wait_queue', 'p2_wait_queue', 'p23_wait_queue'
-    Falls back to 0 if a metric is missing or InfluxDB is unreachable.
-    """
+    """Latest value for each wait-queue metric. Returns 0 on missing/error."""
     flux = f'''
 from(bucket: "{INFLUXDB_BUCKET}")
   |> range(start: -2m)
@@ -91,7 +71,6 @@ from(bucket: "{INFLUXDB_BUCKET}")
     return queues
 
 
-# ── branch file writer ────────────────────────────────────────────────────────
 def write_branch(filename: str, value: int) -> str | None:
     """Write value to branch file. Returns 'old→new' string if changed, else None."""
     path = FILES_DIR / filename
@@ -107,7 +86,6 @@ def write_branch(filename: str, value: int) -> str | None:
     return None
 
 
-# ── logistics log ─────────────────────────────────────────────────────────────
 _ROUTE_DESC = {
     "branch1": {1: "FA → FB (P1)", 2: "FA → FC (P1)"},
     "branch2": {1: "FB → FD (P12)", 2: "FB → FC (P2)", 3: "FB → FA (empty)"},
@@ -143,47 +121,28 @@ def append_log(queues: dict, routes: dict, changes: dict):
         print(f"  [WARN] Log write failed: {e}")
 
 
-# ── routing logic ─────────────────────────────────────────────────────────────
 def decide_routes(queues: dict, cycle: int) -> dict:
-    """
-    Compute branch values from current queue sizes.
-
-    Returns dict with keys branch1 .. branch4.
-    """
     p1_q  = queues["p1_wait_queue"]
     p2_q  = queues["p2_wait_queue"]
     p23_q = queues["p23_wait_queue"]
 
-    # ── branch3: FC → FD or empty return ──────────────────────────────────────
-    # car3_gate only opens when fc_p23.QueueLength >= 2 (simulation gate logic),
-    # so only set branch3=1 when there is actually P23 to load.
+    # car3_gate only opens when fc_p23.QueueLength >= 2, so don't set branch3=1 with empty queue
     branch3 = 1 if p23_q >= P23_THRESHOLD else 2
 
-    # ── branch4: after FD delivery, where to send the empty truck ─────────────
-    # ALWAYS use branch4=2 (road4_back → car_park3_in_sum → car3_gate → Branch3 → FA).
-    # branch4=1 goes to car_park2_in where download_p1_b waits to unload 3 items from
-    # the truck — an empty truck arriving there will deadlock forever.
+    # branch4=1 sends truck to car_park2_in where download_p1_b tries to unload 3 items — deadlocks on empty
     branch4 = 2
 
-    # ── branch2: truck at FB, what to load ────────────────────────────────────
-    # ALWAYS pick up P2 and deliver to FC (branch2=2).
-    # fb_p2_p23 is now a dedicated transport queue (split by Branch_p2 in simulation),
-    # so it fills up without competition from Assemble_p12.
+    # fb_p2_p23 is a dedicated transport queue (split by Branch_p2), no competition with Assemble_p12
     branch2 = 2
 
-    # ── branch1: which factory gets P1 from FA ────────────────────────────────
-    # INTERVAL=3s + BRANCH1_PERIOD=3.
-    #   FA→FB ≈15s = 5 cycles. Trucks return at cycle N+5.
-    #   (N+5) % 3 = (N+2) % 3. If N%3==0 (FB departure), return at (0+5)%3=2 → FC slot.
-    #   This means trucks reliably alternate: FB trip → FC trip → FB trip → FC trip...
-    #   FA→FC ≈5s ≈1.7 cycles. Return at N+1.7 → (0+5+1.7)%3 = 0 → FB slot again. ✓
+    # INTERVAL=3s, FA→FB≈15s (5 cycles): trucks back at N+5. With BRANCH1_PERIOD=3, (N+5)%3
+    # reliably puts FB departures into the FC slot → alternates FB/FC as intended
     branch1 = 2 if (cycle % BRANCH1_PERIOD == 2) else 1
 
     return {"branch1": branch1, "branch2": branch2,
             "branch3": branch3, "branch4": branch4}
 
 
-# ── main loop ─────────────────────────────────────────────────────────────────
 def main():
     print("=" * 50)
     print("Branch Controller")
