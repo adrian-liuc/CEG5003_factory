@@ -25,7 +25,6 @@ class InfluxService:
 
             PRODUCTION_METRICS = {"p1", "p2", "p3", "p4", "p12", "p13", "p23", "p234"}
 
-            # Group by (factory_id, metric) -> list of (minute, value)
             trend = defaultdict(list)
             for table in result:
                 for record in table.records:
@@ -81,9 +80,7 @@ class InfluxService:
         try:
             result = self.query_api.query(org=INFLUXDB_ORG, query=flux_query)
 
-            # Collect all records, keyed by (factory_id, metric)
-            # For each key: track first (min time) and last (max time) values
-            series = defaultdict(list)  # key -> [(time, value)]
+            series = defaultdict(list)  # (factory_id, metric) -> [(time, value)]
 
             for table in result:
                 for record in table.records:
@@ -97,7 +94,6 @@ class InfluxService:
             if not series:
                 return f"No data found in the past {minutes} minutes."
 
-            # Sort each series by time
             for key in series:
                 series[key].sort(key=lambda x: x[0])
 
@@ -111,8 +107,7 @@ class InfluxService:
                 first_val = points[0][1]
                 last_val = points[-1][1]
                 delta = last_val - first_val
-                # Negative delta means counter was reset (e.g. system restart)
-                # In that case, last_val itself is the production since reset
+                # counter reset on restart: last_val is production since reset
                 produced = last_val if delta < 0 else delta
                 production_delta.append({
                     "factory_id": fid,

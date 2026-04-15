@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-MQTT JSON-RPC Server
-Continuously running, receiving JSON format requests via stdin, executing MQTT operations
-"""
+# MQTT JSON-RPC server — reads JSON requests from stdin, responds on stdout
 
 import sys
 import json
@@ -23,19 +20,16 @@ subscribed_topics = set()
 
 
 def log_info(message):
-    """Output log to stderr without interfering with stdout JSON communication"""
     print(f"[INFO] {message}", file=sys.stderr)
     sys.stderr.flush()
 
 
 def log_error(message):
-    """Output error log to stderr"""
     print(f"[ERROR] {message}", file=sys.stderr)
     sys.stderr.flush()
 
 
 def on_connect(client, userdata, flags, rc):
-    """MQTT connection callback"""
     global connected
     if rc == 0:
         connected = True
@@ -51,7 +45,6 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_disconnect(client, userdata, rc):
-    """MQTT disconnection callback"""
     global connected
     connected = False
     if rc != 0:
@@ -61,7 +54,6 @@ def on_disconnect(client, userdata, rc):
 
 
 def on_message(client, userdata, msg):
-    """MQTT message reception callback"""
     try:
         message = msg.payload.decode('utf-8')
         log_info(f"Received message - Topic: {msg.topic}, Message: {message}")
@@ -70,7 +62,6 @@ def on_message(client, userdata, msg):
 
 
 def init_mqtt():
-    """Initialize MQTT client"""
     global mqtt_client
 
     import uuid
@@ -92,15 +83,6 @@ def init_mqtt():
 
 
 def publish_message(params):
-    """
-    Publish message to MQTT
-    
-    Args:
-        params: Parameter dictionary containing msg and topic
-        
-    Returns:
-        dict: Operation result
-    """
     try:
         msg = params[0]
         topic = params[1]
@@ -136,15 +118,6 @@ def publish_message(params):
 
 
 def subscribe_message(params):
-    """
-    Subscribe to MQTT topic
-    
-    Args:
-        params: Parameter dictionary containing topic
-        
-    Returns:
-        dict: Operation result
-    """
     try:
         topic = params.get("topic")
         
@@ -180,7 +153,6 @@ def subscribe_message(params):
 
 
 def get_status(params):
-    """Get server status"""
     return {
         "connected": connected,
         "broker_host": BROKER_HOST,
@@ -198,29 +170,21 @@ methods = {
 
 
 def main():
-    """Main function"""
-    # Initialize MQTT
     init_mqtt()
-    
-    log_info("JSON-RPC service started, waiting for requests...")
-    log_info("Supported methods: publish_message, subscribe_message, get_status")
-    
-    # Continuously listen to stdin
+    log_info("JSON-RPC service started")
+
     for line in sys.stdin:
         try:
-            # Parse JSON request
             request = json.loads(line)
             method = request.get("method")
             params = request.get("params", {})
             req_id = request.get("id")
-            
-            log_info(f"Request received - Method: {method}, ID: {req_id}")
-            
-            # Execute method
+
+            log_info(f"method={method} id={req_id}")
+
             if method in methods:
                 try:
                     result = methods[method](params)
-                    # Check if result indicates error
                     if isinstance(result, dict) and result.get("status") == "error":
                         response = {
                             "jsonrpc": "2.0",
@@ -248,7 +212,6 @@ def main():
                     "error": {"message": f"Unknown method: {method}"}
                 }
             
-            # Return response
             print(json.dumps(response, ensure_ascii=False))
             sys.stdout.flush()
         
