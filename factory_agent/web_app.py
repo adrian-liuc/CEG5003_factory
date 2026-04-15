@@ -2,6 +2,7 @@ import os
 import re
 import json
 import uuid
+from pathlib import Path
 from datetime import datetime
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -12,6 +13,7 @@ from agent_core import client, init_session, count_tokens, summarize_history
 from tools import TOOLS, execute_function, NEEDS_APPROVAL
 from memory_service import memory_service
 from factory_service import factory_service
+from influx_service import influx_service
 from config import MODEL_NAME
 
 # Patterns that indicate "production over a time period" — force get_production_delta
@@ -36,8 +38,9 @@ def _extract_minutes(text: str) -> int:
 
 app = FastAPI(title="Factory Agent Dashboard")
 
-os.makedirs("static", exist_ok=True)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+_WEB_UI_DIR = Path(__file__).parent.parent / "web_ui"
+_WEB_UI_DIR.mkdir(exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_WEB_UI_DIR)), name="static")
 
 SESSION_MESSAGES = []
 
@@ -50,9 +53,9 @@ async def startup_event():
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
-    if os.path.exists("static/index.html"):
-        with open("static/index.html", "r", encoding="utf-8") as f:
-            return f.read()
+    index_path = _WEB_UI_DIR / "index.html"
+    if index_path.exists():
+        return index_path.read_text(encoding="utf-8")
     return "<h1>Static file not found.</h1>"
 
 
@@ -196,3 +199,31 @@ async def reset_session():
 @app.get("/api/status")
 async def get_factory_status():
     return JSONResponse(factory_service.get_status())
+
+
+@app.get("/api/twin-data")
+async def get_twin_data():
+    """Returns factory run-status + latest production totals for Digital Twin."""
+    status = factory_service.get_status()
+    production = {}
+    try:
+        raw = json.loads(influx_service.get_current_status())
+        PROD_METRICS = {"p1","p2","p3","p4","p12","p13","p23","p234"}
+        for rec in raw:
+            m = rec.get("metric","")
+            if m in PROD_METRICS:
+                fid = rec.get("factory_id","")
+                production.setdefault(fid, {})[m] = int(rec.get("value") or 0)
+    except Exception:
+        pass
+    return JSONResponse({"status": status, "production": production})
+
+
+@app.get("/api/logistics-log")
+async def get_logistics_log():
+    log_path = Path(__file__).parent.parent / "logistics_ctrl" / "logistics_log.json"
+    try:
+        entries = json.loads(log_path.read_text()) if log_path.exists() else []
+        return JSONResponse(list(reversed(entries)))   # newest first
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)

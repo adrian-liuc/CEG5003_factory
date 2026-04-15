@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Management Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #05070A;
+            --bg-panel: rgba(13, 17, 23, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --primary-glow: #00f0ff;
+            --secondary-glow: #7000ff;
+            --success-glow: #00e676;
+            --danger-glow: #ff4757;
+            --text-main: #f0f6fc;
+            --text-muted: #8b949e;
+            --user-bubble: linear-gradient(135deg, #1a5cff, #00d2ff);
+            --bot-bubble: rgba(20, 24, 32, 0.7);
+            --border-radius: 16px;
+            --hud-font: 'Consolas', 'Courier New', monospace;
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0d1321, #05070a 60%, #0a0b12);
+            color: var(--text-main);
+            overflow: hidden;
+        }
+
+        body::before {
+            content: ""; position: absolute; top:0; left:0; width:100%; height:100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px; pointer-events: none; z-index: 1000; opacity: 0.3;
+        }
+
+        /* App Layout */
+        .app-layout { display: flex; height: 100vh; width: 100vw; overflow: hidden; position: relative; z-index: 1; }
+
+        .sidebar {
+            width: 260px; background: rgba(10, 12, 16, 0.85);
+            border-right: 1px solid var(--glass-border); padding: 24px 20px;
+            display: flex; flex-direction: column; gap: 16px; backdrop-filter: blur(20px); z-index: 10;
+        }
+
+        .sidebar-logo {
+            font-size: 1.1rem; font-weight: 700; color: #fff; padding-bottom: 24px; border-bottom: 1px solid var(--glass-border);
+            display: flex; align-items: center; gap: 10px; margin-bottom: 10px; text-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+
+        .nav-item {
+            padding: 14px 16px; border-radius: 12px; cursor: pointer; transition: all 0.3s;
+            color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 12px; font-size: 0.95rem; border: 1px solid transparent;
+        }
+        .nav-item:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-main); }
+        .nav-item.active { background: rgba(0, 240, 255, 0.1); color: var(--primary-glow); border: 1px solid rgba(0, 240, 255, 0.3); box-shadow: 0 0 20px rgba(0, 240, 255, 0.15) inset; }
+
+        .main-content { flex: 1; position: relative; height: 100%; overflow: hidden; }
+        .view-panel { width: 100%; height: 100%; display: none; flex-direction: column; overflow: hidden; }
+        .view-panel.active { display: flex; animation: fadeIn 0.4s ease-out; }
+        .dashboard-iframe { width: 100%; flex: 1; min-height: 0; border: none; background: #05070a; display: block; }
+
+        .container { display: flex; flex-direction: column; width: 96%; max-width: 1600px; height: 100%; margin: 0 auto; padding: 2vh 0; box-sizing: border-box; flex: 1; }
+
+        /* Top Navigation */
+        .header {
+            display: flex; align-items: center; justify-content: space-between; padding: 20px 30px; background: var(--bg-panel);
+            border: 1px solid var(--glass-border); border-radius: var(--border-radius); backdrop-filter: blur(16px);
+            margin-bottom: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .header h1 { margin: 0; font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 12px; text-shadow: 0 0 15px rgba(255,255,255,0.3); }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--success-glow); box-shadow: 0 0 10px var(--success-glow), 0 0 20px var(--success-glow); display: inline-block; }
+
+        /* Chat Area */
+        .chat-box { flex: 1; overflow-y: auto; padding: 20px 10px; display: flex; flex-direction: column; gap: 20px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
+        .chat-box::-webkit-scrollbar { width: 6px; }
+        .chat-box::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+
+        .message { display: flex; flex-direction: column; max-width: 85%; animation: fadeIn 0.3s ease-out; margin-bottom: 8px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .message.user { align-self: flex-end; align-items: flex-end; }
+        .message.bot { align-self: flex-start; }
+
+        .bubble { padding: 16px 22px; border-radius: 20px; font-size: 0.95rem; line-height: 1.6; word-wrap: break-word; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); }
+        .message.user .bubble { background: var(--user-bubble); border-bottom-right-radius: 4px; color: #fff; box-shadow: 0 8px 24px rgba(26, 92, 255, 0.3); }
+        .message.bot .bubble { background: var(--bot-bubble); border: 1px solid var(--glass-border); border-bottom-left-radius: 4px; backdrop-filter: blur(12px); }
+
+        .bubble p { margin: 0 0 10px 0; }
+        .bubble p:last-child { margin: 0; }
+        .bubble pre { background: #000; padding: 14px; border-radius: 10px; overflow-x: auto; border: 1px solid var(--glass-border); }
+        .bubble code { font-family: var(--hud-font); background: rgba(0, 0, 0, 0.4); padding: 3px 8px; border-radius: 6px; font-size: 0.85rem; color: #a5d6ff; }
+        .bubble table { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
+        .bubble th, .bubble td { border: 1px solid var(--glass-border); padding: 10px; text-align: left; }
+
+        .tool-log-container { margin-top: 8px; margin-left: 10px; }
+        .log-details { background: var(--bot-bubble); border: 1px solid var(--glass-border); border-radius: 12px; overflow: hidden; font-size: 0.85rem; transition: all 0.3s ease; }
+        .log-summary { padding: 12px 16px; cursor: pointer; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 8px; user-select: none; }
+        .log-summary:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.05); }
+        .log-details[open] .log-summary { border-bottom: 1px solid var(--glass-border); color: var(--primary-glow); }
+        .log-content { padding: 14px; max-height: 400px; overflow-y: auto; }
+        .log-item { margin-bottom: 12px; padding: 12px; background: rgba(0, 0, 0, 0.4); border-radius: 8px; border-left: 3px solid #1a5cff; }
+        .log-item.result { border-left-color: var(--success-glow); background: rgba(0, 230, 118, 0.05); }
+        .log-item.error { border-left-color: var(--danger-glow); background: rgba(255, 71, 87, 0.05); }
+        .log-title { font-family: var(--hud-font); font-weight: 700; margin-bottom: 6px; color: #e5e7eb; }
+        .log-pre { margin: 0; white-space: pre-wrap; font-family: var(--hud-font); font-size: 0.8rem; color: var(--text-muted); }
+
+        .typing-indicator { display: flex; gap: 6px; padding: 14px 20px; background: var(--bot-bubble); border-radius: 20px; width: fit-content; border: 1px solid var(--glass-border); display: none; margin-bottom: 10px; }
+        .typing-indicator span { width: 8px; height: 8px; background: var(--primary-glow); border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; box-shadow: 0 0 10px var(--primary-glow); }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        .input-area { display: flex; gap: 14px; padding: 20px 24px; background: var(--bg-panel); border: 1px solid var(--glass-border); border-radius: var(--border-radius); backdrop-filter: blur(16px); margin-top: 10px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); }
+        .input-area input { flex: 1; background: transparent; border: none; color: var(--text-main); font-size: 1.05rem; outline: none; }
+        .input-area input::placeholder { color: var(--text-muted); }
+        .send-btn { background: var(--user-bubble); color: white; border: none; border-radius: 12px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(26, 92, 255, 0.4); }
+        .send-btn:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(26, 92, 255, 0.6); }
+
+        /* Digital Twin */
+        .twin-wrap { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; border-radius: 16px; background: radial-gradient(circle at center, rgba(0,240,255,0.03) 0%, transparent 60%); }
+        .twin-wrap::before { content: ""; position: absolute; width: 100%; height: 100%; background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 50px 50px; opacity: 0.8; z-index: 0; pointer-events: none; }
+        .twin-svg { width: 100%; height: 100%; z-index: 1; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.5)); max-height: calc(100vh - 130px); }
+
+        .route-line { stroke: rgba(255,255,255,0.1); stroke-width: 2.5; fill: none; stroke-linecap: round; transition: all 0.3s; }
+        /* Material Flow Simulation */
+        .route-active {
+            stroke-width: 4; fill: none; stroke-linecap: round;
+            stroke-dasharray: 12, 16;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .route-active.active {
+            opacity: 1;
+            animation: flow-dash 1.5s linear infinite;
+        }
+        
+        .p1-color { stroke: var(--primary-glow); filter: drop-shadow(0 0 6px var(--primary-glow)); }
+        .p2-color { stroke: #5b9bff; filter: drop-shadow(0 0 6px #5b9bff); }
+        .p12-color { stroke: #c471ed; filter: drop-shadow(0 0 6px #c471ed); }
+        .p23-color { stroke: #ffea00; filter: drop-shadow(0 0 6px #ffea00); }
+
+        .route-return.active {
+            opacity: 1; stroke: rgba(255,100,100,0.8);
+            filter: drop-shadow(0 0 4px rgba(255,100,100,0.8));
+            animation: flow-dash-reverse 2s linear infinite;
+        }
+
+        @keyframes flow-dash {
+            from { stroke-dashoffset: 28; }
+            to { stroke-dashoffset: 0; }
+        }
+        @keyframes flow-dash-reverse {
+            from { stroke-dashoffset: 0; }
+            to { stroke-dashoffset: 28; }
+        }
+        .route-return { stroke: rgba(255,255,255,0.3); stroke-dasharray: 4, 8; stroke-width: 2; fill: none; opacity: 0; transition: opacity 0.3s; }
+        .route-return.active { opacity: 1; filter: drop-shadow(0 0 4px rgba(255,255,255,0.8)); animation: flow-line 30s linear infinite reverse;}
+        /* Material Flow Simulation */
+        .route-active {
+            stroke-width: 4; fill: none; stroke-linecap: round;
+            stroke-dasharray: 12, 16;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .route-active.active {
+            opacity: 1;
+            animation: flow-dash 1.5s linear infinite;
+        }
+        
+        .p1-color { stroke: var(--primary-glow); filter: drop-shadow(0 0 6px var(--primary-glow)); }
+        .p2-color { stroke: #5b9bff; filter: drop-shadow(0 0 6px #5b9bff); }
+        .p12-color { stroke: #c471ed; filter: drop-shadow(0 0 6px #c471ed); }
+        .p23-color { stroke: #ffea00; filter: drop-shadow(0 0 6px #ffea00); }
+
+        .route-return.active {
+            opacity: 1; stroke: rgba(255,100,100,0.8);
+            filter: drop-shadow(0 0 4px rgba(255,100,100,0.8));
+            animation: flow-dash-reverse 2s linear infinite;
+        }
+
+        @keyframes flow-dash {
+            from { stroke-dashoffset: 28; }
+            to { stroke-dashoffset: 0; }
+        }
+        @keyframes flow-dash-reverse {
+            from { stroke-dashoffset: 0; }
+            to { stroke-dashoffset: 28; }
+        }
+        .route-return { stroke: rgba(255,255,255,0.3); stroke-dasharray: 4, 8; stroke-width: 2; fill: none; opacity: 0; transition: opacity 0.3s; }
+        .route-return.active { opacity: 1; filter: drop-shadow(0 0 4px rgba(255,255,255,0.8)); animation: flow-line 30s linear infinite reverse;}
+        .route-return { stroke: rgba(255,255,255,0.15); stroke-width: 2; fill: none; stroke-dasharray: 4 12; }
+        @keyframes flow-anim { from { stroke-dashoffset: 40; } to { stroke-dashoffset: 0; } }
+
+        .factory-node-bg { fill: rgba(10,14,20,0.9); stroke: rgba(255,255,255,0.12); stroke-width: 1.5; transition: fill 0.3s; }
+        .factory-node-bg:hover { fill: rgba(15,20,30,0.95); stroke: rgba(255,255,255,0.25); }
+        .factory-ring { fill: rgba(0,0,0,0.5); stroke-width: 3; stroke: var(--success-glow); filter: drop-shadow(0 0 12px var(--success-glow)); transition: all 0.3s; }
+        .factory-ring.stopped { stroke: var(--danger-glow); filter: drop-shadow(0 0 12px var(--danger-glow)); }
+        
+        .f-name  { fill: #fff; font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; letter-spacing: 1px; }
+        .f-sep   { stroke: rgba(255,255,255,0.05); stroke-width: 1.5; }
+        .f-shead { fill: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 700; text-anchor: middle; letter-spacing: 0.5px; }
+        .f-key   { fill: #6b7280; font-family: var(--hud-font); font-size: 9px; text-anchor: end; dominant-baseline: middle; }
+        .f-val   { fill: #e5e7eb; font-family: var(--hud-font); font-size: 11px; font-weight: 600; text-anchor: start; dominant-baseline: middle; }
+        .f-val.hl { fill: var(--primary-glow); text-shadow: 0 0 8px rgba(0, 240, 255, 0.4); }
+        .f-val.hl2 { fill: #5b9bff; text-shadow: 0 0 8px rgba(91, 155, 255, 0.4); }
+        .route-label { fill: rgba(255,255,255,0.3); font-family: var(--hud-font); font-size: 11px; font-weight: bold; text-anchor: middle; letter-spacing: 1px; transition: all 0.3s; }
+        .route-label.active    { fill: var(--primary-glow); filter: drop-shadow(0 0 5px var(--primary-glow)); }
+        .route-label.active.p2 { fill: #5b9bff; filter: drop-shadow(0 0 5px #5b9bff); }
+        .truck-dot { fill: #fff; filter: drop-shadow(0 0 8px #fff) drop-shadow(0 0 15px rgba(255,255,255,0.8)); transition: transform 0.1s; }
+        .legend-bg { fill: rgba(0,0,0,0.6); stroke: rgba(255,255,255,0.08); stroke-width: 1; backdrop-filter: blur(8px); }
+        .legend-t  { fill: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 11px; dominant-baseline: middle; }
+
+        /* Logistics Log — compact rows */
+        @keyframes slideInX { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+        .loge {
+            display: flex; align-items: center; gap: 14px;
+            padding: 7px 14px; border-radius: 6px;
+            font-family: var(--hud-font); font-size: 0.78rem;
+            background: rgba(255,255,255,0.02);
+            border-left: 3px solid transparent;
+            animation: slideInX 0.3s ease-out;
+            flex-shrink: 0;
+        }
+        .loge-time { color: #4e5a6a; min-width: 68px; }
+        .loge-q    { color: #6b7280; flex: 1; }
+        .loge-q b  { color: #c9d1d9; }
+        .loge-q b.hi { color: #ffea00; }
+        .loge-r    { color: #6b7280; min-width: 170px; display: flex; gap: 8px; }
+        .loge-r .r1 { color: #00f0ff; }
+        .loge-r .r1.alt { color: #a78bfa; }
+        .loge-r .r3 { color: #ffea00; }
+        .loge-r .r3.ret { color: #5a6272; }
+    
+        /* WOW Factor Twin CSS */
+        .twin-wrap { flex: 1; padding: 0; display: flex; justify-content: center; align-items: center;  background: radial-gradient(circle at center, #0a111a 0%, #03060a 100%); overflow: hidden; position: relative;}
+        .twin-svg { width: 100%; height: 100%; max-height:100%; filter: drop-shadow(0 0 15px rgba(0,0,0,0.5)); }
+        
+        .factory-html-node {
+            width: 100%; height: 100%; 
+            display: flex; box-sizing: border-box;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(5, 10, 15, 0.95) 100%);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 16px;
+            backdrop-filter: blur(16px);
+            box-shadow: inset 0 0 30px rgba(0, 240, 255, 0.05), 0 10px 30px rgba(0,0,0,0.5);
+            font-family: var(--hud-font);
+            color: white;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .factory-html-node::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; 
+            background: linear-gradient(90deg, transparent, var(--primary-glow), transparent);
+            opacity: 0.5;
+        }
+
+        /* The Left section: core visual */
+        .node-visual {
+            width: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            position: relative; background: rgba(0,0,0,0.2);
+        }
+
+        .core-ring {
+            width: 64px; height: 64px; border-radius: 50%; border: 3px solid #00e676;
+            box-shadow: 0 0 20px rgba(0, 230, 118, 0.5), inset 0 0 15px rgba(0, 230, 118, 0.5);
+            display: flex; align-items: center; justify-content: center;
+            animation: pulse-ring 2s infinite ease-in-out;
+            position: relative;
+        }
+
+        .core-ring::after {
+            content:''; position:absolute; width:100%; height:100%; border-radius:50%;
+            border-top: 3px solid white; border-right: 3px solid transparent; border-bottom: 3px solid transparent; border-left: 3px solid transparent;
+            animation: spin 3s linear infinite; filter: blur(1px);
+        }
+
+        .core-ring.stopped {
+            border-color: #ff4757; box-shadow: 0 0 20px rgba(255, 71, 87, 0.5), inset 0 0 15px rgba(255, 71, 87, 0.5); animation: none;
+        }
+        .core-ring.stopped::after { display: none; }
+        .core-ring.completed {
+            border-color: #00b4d8;
+            box-shadow: 0 0 14px rgba(0,180,216,0.4), inset 0 0 10px rgba(0,180,216,0.2);
+            animation: none;
+        }
+        .core-ring.completed::after { display: none; }
+        .factory-html-node.completed {
+            border-color: rgba(0,180,216,0.35) !important;
+            box-shadow: inset 0 0 30px rgba(0,180,216,0.06), 0 10px 30px rgba(0,0,0,0.5) !important;
+        }
+        .factory-html-node.completed .node-visual { background: rgba(0,180,216,0.07) !important; }
+
+        .node-name { font-size: 20px; font-weight: 800; letter-spacing: 1px; margin-top: 8px; text-shadow: 0 0 10px rgba(255,255,255,0.5);}
+        .node-sub { font-size: 10px; color: #8b92a5; margin-top: 2px; }
+
+        /* The Right section: data grid */
+        .node-data {
+            flex: 1; padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between;
+        }
+
+        .data-header {
+            font-size: 9px; color: var(--primary-glow); letter-spacing: 1px; font-weight: bold; margin-bottom: 6px;
+        }
+
+        .data-row {
+            display: flex; align-items: center; margin-bottom: 4px;
+        }
+
+        .data-key { font-size: 11px; color: #a1a1aa; font-weight: 600; flex: none; white-space: nowrap; }
+        .data-val { font-size: 13px; font-weight: 700; color: #fff; font-family: Consolas, monospace; flex: 1; text-align: right; white-space: nowrap; margin-left: 4px; }
+        .data-val.hl { color: var(--primary-glow); text-shadow: 0 0 8px rgba(0, 240, 255, 0.6); }
+
+        .data-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 6px 0; }
+        
+        .route-pipeline { stroke: rgba(10,20,30,0.8); stroke-width: 8; fill: none; stroke-linecap: round; stroke-linejoin: round;}
+        .route-line { stroke: var(--primary-glow); stroke-width: 3; fill: none; stroke-dasharray: 8, 8; opacity: 0.3; stroke-linecap: round;}
+        /* Material Flow Simulation */
+        .route-active {
+            stroke-width: 4; fill: none; stroke-linecap: round;
+            stroke-dasharray: 12, 16;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .route-active.active {
+            opacity: 1;
+            animation: flow-dash 1.5s linear infinite;
+        }
+        
+        .p1-color { stroke: var(--primary-glow); filter: drop-shadow(0 0 6px var(--primary-glow)); }
+        .p2-color { stroke: #5b9bff; filter: drop-shadow(0 0 6px #5b9bff); }
+        .p12-color { stroke: #c471ed; filter: drop-shadow(0 0 6px #c471ed); }
+        .p23-color { stroke: #ffea00; filter: drop-shadow(0 0 6px #ffea00); }
+
+        .route-return.active {
+            opacity: 1; stroke: rgba(255,100,100,0.8);
+            filter: drop-shadow(0 0 4px rgba(255,100,100,0.8));
+            animation: flow-dash-reverse 2s linear infinite;
+        }
+
+        @keyframes flow-dash {
+            from { stroke-dashoffset: 28; }
+            to { stroke-dashoffset: 0; }
+        }
+        @keyframes flow-dash-reverse {
+            from { stroke-dashoffset: 0; }
+            to { stroke-dashoffset: 28; }
+        }
+        .route-return { stroke: rgba(255,255,255,0.3); stroke-dasharray: 4, 8; stroke-width: 2; fill: none; opacity: 0; transition: opacity 0.3s; }
+        .route-return.active { opacity: 1; filter: drop-shadow(0 0 4px rgba(255,255,255,0.8)); animation: flow-line 30s linear infinite reverse;}
+        .route-line.p2.active { stroke: #5b9bff; filter: drop-shadow(0 0 6px #5b9bff); }
+
+        .truck-dot-wow { 
+            fill: #fff; filter: drop-shadow(0 0 8px #fff) drop-shadow(0 0 15px var(--primary-glow));
+        }
+
+        @keyframes pulse-ring { 0% { transform: scale(0.95); } 50% { transform: scale(1.02); } 100% { transform: scale(0.95); } }
+        @keyframes flow-line { to { stroke-dashoffset: -400; } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+
+        .factory-html-node.stopped {
+            border-color: rgba(255, 71, 87, 0.8) !important;
+            box-shadow: inset 0 0 60px rgba(255, 71, 87, 0.15), 0 10px 30px rgba(0,0,0,0.5) !important;
+            background: linear-gradient(135deg, rgba(255, 71, 87, 0.1) 0%, rgba(5, 10, 15, 0.95) 100%) !important;
+        }
+        .factory-html-node.stopped .node-visual {
+            background: rgba(255, 71, 87, 0.1) !important;
+        }
+
+        /* ── Redesigned Digital Twin ─────────────────────────────────────────── */
+        .twin-outer { display: flex; flex-direction: column; height: 100%; width: 100%; overflow: hidden; }
+
+        .twin-topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 24px; background: var(--bg-panel);
+            border-bottom: 1px solid var(--glass-border); backdrop-filter: blur(16px);
+            flex-shrink: 0;
+        }
+        .twin-topbar h1 { margin: 0; font-size: 1.1rem; font-weight: 600; display:flex; align-items:center; gap:10px; }
+        .twin-badge {
+            font-size: 0.65rem; font-weight: 800; letter-spacing: 1.5px; padding: 3px 10px;
+            border-radius: 20px; background: rgba(0,240,255,0.1);
+            border: 1px solid rgba(0,240,255,0.35); color: #00f0ff;
+        }
+        .twin-badge.live { background: rgba(0,230,118,0.1); border-color: rgba(0,230,118,0.4); color: #00e676; }
+
+        .twin-body { display: flex; flex: 1; overflow: hidden; }
+
+        .twin-map-wrap {
+            flex: 1; position: relative; overflow: hidden;
+            background: radial-gradient(ellipse at 50% 50%, rgba(0,240,255,0.025) 0%, transparent 65%);
+        }
+        .twin-map-wrap::before {
+            content: ""; position: absolute; inset: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        #twin-svg { width: 100%; height: 100%; display: block; }
+
+        /* Flow lines on SVG */
+        .tflow {
+            stroke-width: 3.5; fill: none; stroke-linecap: round;
+            stroke-dasharray: 10 15; opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .tflow.on { opacity: 1; animation: tflow-run 1.1s linear infinite; }
+        .tflow.on.slow { animation-duration: 2.4s; }
+        .tflow-p1  { stroke: #00f0ff; filter: drop-shadow(0 0 5px #00f0ff); }
+        .tflow-p2  { stroke: #5b9bff; filter: drop-shadow(0 0 5px #5b9bff); }
+        .tflow-p12 { stroke: #c471ed; filter: drop-shadow(0 0 5px #c471ed); }
+        .tflow-p23 { stroke: #ffea00; filter: drop-shadow(0 0 5px #ffea00); }
+        @keyframes tflow-run { from { stroke-dashoffset: 25; } to { stroke-dashoffset: 0; } }
+
+        /* Side panel — fixed sidebar */
+        .twin-side-panel {
+            width: 240px; flex-shrink: 0;
+            background: transparent;
+            border-left: 1px solid rgba(255,255,255,0.04);
+            padding: 14px 10px;
+            display: flex; flex-direction: column; gap: 10px;
+            align-items: stretch; justify-content: flex-start;
+            overflow-y: auto;
+            scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
+        }
+        .side-sec {
+            display: flex; flex-direction: column; gap: 7px;
+            background: rgba(13,18,26,0.7);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 10px;
+            padding: 12px 10px;
+        }
+        .side-sec-title {
+            font-size: 0.62rem; color: #555e6e; font-weight: 800; letter-spacing: 1.2px;
+            text-transform: uppercase; padding-bottom: 6px; margin-bottom: 2px;
+            border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0;
+        }
+
+        /* Branch decision cards */
+        .branch-card {
+            background: rgba(255,255,255,0.025); border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.06); padding: 7px 10px;
+            display: flex; flex-direction: column; gap: 2px; transition: all 0.4s;
+        }
+        .branch-card.c-p1  { border-color: rgba(0,240,255,0.28); background: rgba(0,240,255,0.04); }
+        .branch-card.c-p2  { border-color: rgba(91,155,255,0.28); background: rgba(91,155,255,0.04); }
+        .branch-card.c-p23 { border-color: rgba(255,234,0,0.28); background: rgba(255,234,0,0.04); }
+        .branch-card.c-ret { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.02); }
+        .bc-label  { font-size: 0.62rem; color: #4e5764; font-weight: 700; letter-spacing: 0.5px; }
+        .bc-route  { font-size: 0.83rem; font-weight: 700; color: #e2e8f0; font-family: monospace; }
+        .bc-reason { font-size: 0.68rem; color: #5a6270; font-style: italic; margin-top: 1px; }
+
+        /* Queue bars */
+        .qbar-row  { display: flex; align-items: center; gap: 7px; }
+        .qbar-lbl  { font-size: 0.72rem; font-weight: 800; width: 28px; font-family: monospace; }
+        .qbar-track { flex: 1; height: 5px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
+        .qbar-fill  { height: 100%; border-radius: 3px; transition: width 0.9s ease; min-width: 2px; }
+        .qbar-fill.p1  { background: linear-gradient(90deg,#00f0ff,#009eb8); box-shadow: 0 0 5px rgba(0,240,255,0.5); }
+        .qbar-fill.p2  { background: linear-gradient(90deg,#5b9bff,#3a6fcc); box-shadow: 0 0 5px rgba(91,155,255,0.5); }
+        .qbar-fill.p23 { background: linear-gradient(90deg,#ffea00,#bfb000); box-shadow: 0 0 5px rgba(255,234,0,0.5); }
+        .qbar-val  { font-size: 0.72rem; font-family: monospace; font-weight: 700; width: 18px; text-align: right; }
+
+        .qbar-wrap { flex: 1; }
+
+
+</style>
+
+</head>
+
+<body>
+
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+
+            <div class="nav-item active" onclick="switchTab('agent', this)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Agent Chat
+            </div>
+
+            <div class="nav-item" onclick="switchTab('twin', this)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="7" width="6" height="10" rx="1"></rect>
+                    <rect x="9" y="4" width="6" height="16" rx="1"></rect>
+                    <rect x="16" y="9" width="6" height="8" rx="1"></rect>
+                </svg>
+                Digital Twin
+            </div>
+
+            <div class="nav-item" onclick="switchTab('dashboard', this)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="3" y1="9" x2="21" y2="9"></line>
+                    <line x1="9" y1="21" x2="9" y2="9"></line>
+                </svg>
+                Dashboard Area
+            </div>
+
+            <div class="nav-item" onclick="switchTab('logistics', this)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+                Logistics Log
+            </div>
+            
+            <div id="factory-status-container" style="margin-top: auto; padding-top: 15px; border-top: 1px solid var(--glass-border);">
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Live Plant Status</div>
+                <div id="factory-list" style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Inserted by JS -->
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- AI Agent View -->
+            <div id="agent-view" class="view-panel active">
+                <div class="container">
+                    <div class="header">
+                        <h1>
+                            Production Management Agent
+                        </h1>
+                        <div style="color: var(--text-muted); font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 4px;"
+                            onclick="resetSession()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                <path d="M3 3v5h5"></path>
+                            </svg>
+                            Reset Session
+                        </div>
+                    </div>
+
+                    <div class="chat-box" id="chatBox">
+                        <div class="message bot">
+                            <div class="bubble">
+                                <p>Hello! I am the <b>Production Management Agent</b>. I can monitor factory data,
+                                    adjust equipments, and recall historical operations. How can I assist you today?</p>
+                            </div>
+                        </div>
+
+                        <div class="typing-indicator" id="typingIndicator">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </div>
+
+                    <div class="input-area">
+                        <input type="text" id="userInput"
+                            placeholder="Send a command to the factory assistant (e.g., Get latest data from F1)"
+                            autocomplete="off" onkeypress="handleEnter(event)">
+                        <button class="send-btn" onclick="sendMessage()">
+                            <svg viewBox="0 0 24 24">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logistics Log View -->
+            <div id="logistics-view" class="view-panel">
+                <div class="container">
+                    <div class="header">
+                        <h1>Logistics Routing Log</h1>
+                        <div style="display:flex;align-items:center;gap:16px;">
+                            <span id="log-count" style="color:var(--text-muted);font-size:0.85rem;"></span>
+                            <div style="color:var(--text-muted);font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:4px;" onclick="clearLogView()">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path></svg>
+                                Clear View
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Column headers -->
+                    <div style="display:flex;align-items:center;gap:14px;padding:6px 14px 8px;font-family:var(--hud-font);font-size:0.65rem;font-weight:800;letter-spacing:1px;color:#3a4555;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0;">
+                        <span style="min-width:148px;">Time</span>
+                        <span style="flex:1;">P1 Queue · P2 Queue · P23 Queue</span>
+                        <span style="min-width:170px;">FA Dispatch (B1) · FC Dispatch (B3)</span>
+                    </div>
+                    <div id="logistics-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding:4px 0;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
+                        <div style="text-align:center;color:var(--text-muted);margin-top:60px;font-size:0.9rem;">
+                            Waiting for branch_controller to start…
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Digital Twin View -->
+            <div id="twin-view" class="view-panel">
+                <div class="twin-outer">
+                    <!-- Top bar -->
+                    <div class="twin-topbar">
+                        <h1>
+                            Digital Twin — Factory Floor
+                            <span class="twin-badge" id="twin-mode-badge">VIRTUAL SIM</span>
+                        </h1>
+                        <span id="twin-updated" style="color:var(--text-muted);font-size:0.8rem;"></span>
+                    </div>
+
+                    <!-- Body: SVG map + side panel -->
+                    <div class="twin-body">
+
+                        <!-- SVG Factory Map -->
+                        <div class="twin-map-wrap">
+                            <!--
+                            ViewBox 1100×560
+                            FA  foreignObject x=20  y=188 w=235 h=155   exits: top=(255,248) bot=(255,288)
+                            FB  foreignObject x=425 y=30  w=245 h=155   enter=(425,108) exit=(670,108)
+                            FC  foreignObject x=425 y=375 w=255 h=155   enter=(425,450) exit=(680,450)
+                            FD  foreignObject x=845 y=188 w=235 h=155   enter=(845,260)
+                            -->
+                            <svg id="twin-svg" viewBox="0 0 1100 560" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <pattern id="tgrid" width="50" height="50" patternUnits="userSpaceOnUse">
+                                        <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(255,255,255,0.022)" stroke-width="1"/>
+                                    </pattern>
+                                    <!-- Arrowhead markers -->
+                                    <marker id="marr-p1"  markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                                        <path d="M 0 1 L 6 3.5 L 0 6 Z" fill="#00f0ff" opacity="0.85"/>
+                                    </marker>
+                                    <marker id="marr-p2"  markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                                        <path d="M 0 1 L 6 3.5 L 0 6 Z" fill="#5b9bff" opacity="0.85"/>
+                                    </marker>
+                                    <marker id="marr-p23" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                                        <path d="M 0 1 L 6 3.5 L 0 6 Z" fill="#ffea00" opacity="0.85"/>
+                                    </marker>
+                                </defs>
+
+                                <!-- Background grid -->
+                                <rect width="100%" height="100%" fill="url(#tgrid)"/>
+
+                                <!-- PIPE BACKGROUNDS (thick dim, always visible) -->
+                                <g stroke="rgba(255,255,255,0.035)" stroke-width="10" fill="none" stroke-linecap="round">
+                                    <path d="M 255 248 C 340 248 340 108 425 108"/>  <!-- FA→FB -->
+                                    <path d="M 255 288 C 340 288 340 450 425 450"/>  <!-- FA→FC -->
+                                    <path d="M 548 185 L 548 375"/>                  <!-- FB→FC -->
+                                    <path d="M 670 108 C 757 108 757 260 845 260"/>  <!-- FB→FD -->
+                                    <path d="M 680 450 C 762 450 762 298 845 298"/>  <!-- FC→FD -->
+                                </g>
+
+                                <!-- ACTIVE FLOW LINES (animated dashes, JS toggles .on) -->
+                                <!-- Forward routes -->
+                                <path id="tfl-fa-fb"     class="tflow tflow-p1"  d="M 255 248 C 340 248 340 108 425 108" marker-end="url(#marr-p1)"/>
+                                <path id="tfl-fa-fc"     class="tflow tflow-p1"  d="M 255 288 C 340 288 340 450 425 450" marker-end="url(#marr-p1)"/>
+                                <path id="tfl-fb-fc"     class="tflow tflow-p2"  d="M 548 185 L 548 375"                  marker-end="url(#marr-p2)"/>
+                                <path id="tfl-fb-fd"     class="tflow tflow-p12" d="M 670 108 C 757 108 757 260 845 260"/>
+                                <path id="tfl-fc-fd"     class="tflow tflow-p23" d="M 680 450 C 762 450 762 298 845 298" marker-end="url(#marr-p23)"/>
+                                <!-- MATERIAL LABELS -->
+                                <g font-family="monospace" font-size="12" font-weight="bold" fill="rgba(255,255,255,0.3)">
+                                    <text x="296" y="218" id="lbl-fa-fb">P1</text>
+                                    <text x="296" y="352" id="lbl-fa-fc">P1</text>
+                                    <text x="560" y="285" id="lbl-fb-fc">P2</text>
+                                    <text x="724" y="176" id="lbl-fb-fd">P12</text>
+                                    <text x="724" y="394" id="lbl-fc-fd">P23</text>
+                                </g>
+
+                                <!-- TRUCK LAYER (JS-animated dots) -->
+                                <g id="truck-layer"></g>
+
+                                <!-- FACTORY NODES -->
+                                <!-- FA: Raw material source, produces P1 -->
+                                <foreignObject x="20" y="188" width="235" height="155">
+                                    <div xmlns="http://www.w3.org/1999/xhtml" class="factory-html-node" id="card-fa">
+                                        <div class="node-visual">
+                                            <div class="core-ring" id="ring-fa"></div>
+                                            <div class="node-name">FA</div>
+                                            <div class="node-sub" id="sub-fa">P1</div>
+                                        </div>
+                                        <div class="node-data">
+                                            <div style="display:flex;justify-content:space-between;gap:8px;">
+                                                <div style="flex:1;">
+                                                    <div class="data-header">RAW OUTPUT</div>
+                                                    <div class="data-row"><span class="data-key">P1</span><span class="data-val hl" id="pv-fa-p1">—</span></div>
+                                                </div>
+                                            </div>
+                                            <div class="data-divider"></div>
+                                            <div>
+                                                <div class="data-header">TARGET</div>
+                                                <div class="data-row"><span class="data-key">PLAN</span><span class="data-val" id="pv-fa-qty" style="color:#ffea00;">—</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </foreignObject>
+
+                                <!-- FB: Assembles P12, ships P2 to FC -->
+                                <foreignObject x="425" y="30" width="245" height="155">
+                                    <div xmlns="http://www.w3.org/1999/xhtml" class="factory-html-node" id="card-fb">
+                                        <div class="node-visual">
+                                            <div class="core-ring" id="ring-fb"></div>
+                                            <div class="node-name">FB</div>
+                                            <div class="node-sub" id="sub-fb">P2·P12</div>
+                                        </div>
+                                        <div class="node-data">
+                                            <div style="display:flex;gap:0;">
+                                                <div style="flex:1;min-width:0;">
+                                                    <div class="data-header">RAW</div>
+                                                    <div class="data-row"><span class="data-key">P2</span><span class="data-val hl" id="pv-fb-p2">—</span></div>
+                                                </div>
+                                                <div style="width:1px;background:rgba(255,255,255,0.08);margin:0 8px;flex-shrink:0;"></div>
+                                                <div style="flex:1;min-width:0;">
+                                                    <div class="data-header">ASSEMBLED</div>
+                                                    <div class="data-row"><span class="data-key">P12</span><span class="data-val hl" id="pv-fb-p12">—</span></div>
+                                                </div>
+                                            </div>
+                                            <div class="data-divider"></div>
+                                            <div>
+                                                <div class="data-header">TARGET</div>
+                                                <div class="data-row"><span class="data-key">PLAN</span><span class="data-val" id="pv-fb-qty" style="color:#ffea00;">—</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </foreignObject>
+
+                                <!-- FC: Assembles P13/P23, dispatches to FD -->
+                                <foreignObject x="425" y="375" width="255" height="155">
+                                    <div xmlns="http://www.w3.org/1999/xhtml" class="factory-html-node" id="card-fc">
+                                        <div class="node-visual">
+                                            <div class="core-ring" id="ring-fc"></div>
+                                            <div class="node-name">FC</div>
+                                            <div class="node-sub" id="sub-fc">P3·P13·P23</div>
+                                        </div>
+                                        <div class="node-data" style="padding-top:5px;padding-bottom:5px;">
+                                            <div style="display:flex;gap:0;">
+                                                <div style="flex:1;min-width:0;">
+                                                    <div class="data-header">RAW</div>
+                                                    <div class="data-row"><span class="data-key">P3</span><span class="data-val hl" id="pv-fc-p3">—</span></div>
+                                                </div>
+                                                <div style="width:1px;background:rgba(255,255,255,0.08);margin:0 8px;flex-shrink:0;"></div>
+                                                <div style="flex:1;min-width:0;">
+                                                    <div class="data-header">ASSEMBLED</div>
+                                                    <div class="data-row" style="margin-bottom:0;"><span class="data-key">P13</span><span class="data-val hl" id="pv-fc-p13">—</span></div>
+                                                    <div class="data-row" style="margin-bottom:0;"><span class="data-key">P23</span><span class="data-val hl" id="pv-fc-p23">—</span></div>
+                                                </div>
+                                            </div>
+                                            <div class="data-divider" style="margin:3px 0;"></div>
+                                            <div>
+                                                <div class="data-header">TARGET</div>
+                                                <div class="data-row" style="margin-bottom:0;"><span class="data-key">PLAN</span><span class="data-val" id="pv-fc-qty" style="color:#ffea00;">—</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </foreignObject>
+
+                                <!-- FD: Final assembly, receives P12+P23 -->
+                                <foreignObject x="845" y="188" width="235" height="155">
+                                    <div xmlns="http://www.w3.org/1999/xhtml" class="factory-html-node" id="card-fd">
+                                        <div class="node-visual">
+                                            <div class="core-ring" id="ring-fd"></div>
+                                            <div class="node-name">FD</div>
+                                            <div class="node-sub" id="sub-fd">P4·P234</div>
+                                        </div>
+                                        <div class="node-data">
+                                            <div style="display:flex;gap:0;">
+                                                <div style="flex:1;min-width:0;">
+                                                    <div class="data-header">RAW</div>
+                                                    <div class="data-row"><span class="data-key">P4</span><span class="data-val hl" id="pv-fd-p4">—</span></div>
+                                                </div>
+                                                <div style="width:1px;background:rgba(255,255,255,0.08);margin:0 8px;flex-shrink:0;"></div>
+                                                <div style="flex:1;min-width:0;">
+                                                    <div class="data-header">ASSEMBLED</div>
+                                                    <div class="data-row"><span class="data-key">P234</span><span class="data-val hl" id="pv-fd-p234">—</span></div>
+                                                </div>
+                                            </div>
+                                            <div class="data-divider"></div>
+                                            <div>
+                                                <div class="data-header">TARGET</div>
+                                                <div class="data-row"><span class="data-key">PLAN</span><span class="data-val" id="pv-fd-qty" style="color:#ffea00;">—</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </foreignObject>
+                            </svg>
+                        </div><!-- /twin-map-wrap -->
+
+                        <!-- SIDE PANEL: routing decisions + queues + event log -->
+                        <div class="twin-side-panel">
+
+                            <!-- Active Routing decisions -->
+                            <div class="side-sec">
+                                <div class="side-sec-title">Active Routing</div>
+
+                                <div class="branch-card c-p1" id="side-b1">
+                                    <div class="bc-label">BRANCH 1 · FA DISPATCH</div>
+                                    <div class="bc-route">FA → FB (P1)</div>
+                                    <div class="bc-reason">Default: cycle % 3 ≠ 2</div>
+                                </div>
+
+                                <div class="branch-card c-p2" id="side-b2">
+                                    <div class="bc-label">BRANCH 2 · FB TRANSFER</div>
+                                    <div class="bc-route">FB → FC (P2)</div>
+                                    <div class="bc-reason">Always active — fixed route</div>
+                                </div>
+
+                                <div class="branch-card c-p23" id="side-b3">
+                                    <div class="bc-label">BRANCH 3 · FC DISPATCH</div>
+                                    <div class="bc-route">FC → FD (P23)</div>
+                                    <div class="bc-reason">P23 queue ≥ 2</div>
+                                </div>
+
+                                <div class="branch-card c-ret" id="side-b4">
+                                    <div class="bc-label">BRANCH 4 · FD RETURN</div>
+                                    <div class="bc-route">FD → FC → FA</div>
+                                    <div class="bc-reason">Always active — standard loop</div>
+                                </div>
+                            </div>
+
+                            <!-- Queue levels -->
+                            <div class="side-sec">
+                                <div class="side-sec-title">Wait Queue Levels</div>
+
+                                <div class="qbar-row">
+                                    <div class="qbar-lbl" style="color:#00f0ff;">P1</div>
+                                    <div class="qbar-wrap">
+                                        <div class="qbar-track">
+                                            <div class="qbar-fill p1" id="qbar-fill-p1" style="width:40%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="qbar-val" id="qbar-val-p1" style="color:#00f0ff;">4</div>
+                                </div>
+
+                                <div class="qbar-row">
+                                    <div class="qbar-lbl" style="color:#5b9bff;">P2</div>
+                                    <div class="qbar-wrap">
+                                        <div class="qbar-track">
+                                            <div class="qbar-fill p2" id="qbar-fill-p2" style="width:35%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="qbar-val" id="qbar-val-p2" style="color:#5b9bff;">3</div>
+                                </div>
+
+                                <div class="qbar-row">
+                                    <div class="qbar-lbl" style="color:#ffea00;">P23</div>
+                                    <div class="qbar-wrap">
+                                        <div class="qbar-track">
+                                            <div class="qbar-fill p23" id="qbar-fill-p23" style="width:12%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="qbar-val" id="qbar-val-p23" style="color:#ffea00;">1</div>
+                                </div>
+                            </div>
+
+
+                        </div><!-- /twin-side-panel -->
+
+                    </div><!-- /twin-body -->
+                </div><!-- /twin-outer -->
+            </div>
+
+            <!-- Grafana Dashboard View -->
+            <div id="dashboard-view" class="view-panel">
+                <div style="flex-shrink:0; padding: 14px 24px 10px; display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(255,255,255,0.07);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                    <span style="font-size:15px; font-weight:600; color:#e2e8f0; letter-spacing:0.5px;">Production Dashboard</span>
+                    <span style="margin-left:auto; font-size:11px; color:#4a5568;">Grafana · localhost:3000</span>
+                </div>
+                <iframe src="http://localhost:3000/d/adznbv2/production-management-dashboard?kiosk"
+                    class="dashboard-iframe" id="grafanaIframe" title="Grafana Dashboard"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab Switching logic
+        function switchTab(tabId, el) {
+            // Update nav styles
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            if (el) el.classList.add('active');
+
+            // Switch view panels
+            document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+            document.getElementById(tabId + '-view').classList.add('active');
+
+            // Scroll to bottom and focus if entering chat
+            if (tabId === 'agent') {
+                scrollToBottom();
+                document.getElementById('userInput').focus();
+            }
+        }
+
+        const chatBox = document.getElementById("chatBox");
+        const userInput = document.getElementById("userInput");
+        const typingIndicator = document.getElementById("typingIndicator");
+
+        // Dynamically set grafana url to avoid localhost vs 127.0.0.1 origin conflicts
+        document.addEventListener('DOMContentLoaded', () => {
+            const iframe = document.getElementById('grafanaIframe');
+            if (iframe && iframe.src.includes('localhost')) {
+                iframe.src = `http://${window.location.hostname}:3000/d/adznbv2/production-management-dashboard?kiosk`;
+            }
+        });
+
+        // Scroll to bottom
+        function scrollToBottom() {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Handles Enter key
+        function handleEnter(e) {
+            if (e.key === "Enter") {
+                sendMessage();
+            }
+        }
+
+        // Reset API
+        async function resetSession() {
+            if (!confirm("Are you sure you want to start a new conversation and clear the short-term memory?")) return;
+            try {
+                await fetch('/api/reset', { method: 'POST' });
+                const indicatorHtml = typingIndicator.outerHTML;
+                chatBox.innerHTML = `
+                <div class="message bot">
+                    <div class="bubble">
+                        <p>Session has been reset! Hello, I am the Production Management Agent. How can I help you today?</p>
+                    </div>
+                </div>` + indicatorHtml;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Format Logs into expandable HTML
+        function formatLogs(logs) {
+            if (!logs || logs.length === 0) return '';
+
+            let html = `
+            <div class="tool-log-container">
+                <details class="log-details">
+                    <summary class="log-summary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                        Backend executed ${logs.filter(l => l.type === 'call').length} tool call(s)
+                    </summary>
+                    <div class="log-content">`;
+
+            logs.forEach(l => {
+                if (l.type === 'call') {
+                    html += `
+                    <div class="log-item call">
+                        <div class="log-title">Tool Call: ${l.func_name}</div>
+                        <pre class="log-pre">${JSON.stringify(l.args, null, 2)}</pre>
+                    </div>`;
+                } else if (l.type === 'result') {
+                    html += `
+                    <div class="log-item result">
+                        <div class="log-title">Result: ${l.func_name}</div>
+                        <pre class="log-pre">${l.result}</pre>
+                    </div>`;
+                } else if (l.type === 'error') {
+                    html += `
+                    <div class="log-item error">
+                        <div class="log-title">Error</div>
+                        <pre class="log-pre">${l.content}</pre>
+                    </div>`;
+                } else {
+                    html += `<div class="log-item"><pre class="log-pre">${l}</pre></div>`;
+                }
+            });
+
+            html += `
+                    </div>
+                </details>
+            </div>`;
+            return html;
+        }
+
+        // Fake Streaming / Typewriter Effect (Improved for Tags)
+        function typeWriterHTML(container, htmlString, speed = 15) {
+            let i = 0;
+            container.innerHTML = '';
+            let charsPerTick = 2; // adjust speed for character chunking
+
+            return new Promise(resolve => {
+                let timer = setInterval(() => {
+                    if (i >= htmlString.length) {
+                        clearInterval(timer);
+                        container.innerHTML = htmlString;
+                        resolve();
+                        return;
+                    }
+
+                    let charsAdded = 0;
+                    while (i < htmlString.length && charsAdded < charsPerTick) {
+                        // Fast forward through complete HTML tags without typing them out
+                        if (htmlString[i] === '<') {
+                            while (i < htmlString.length && htmlString[i] !== '>') {
+                                i++;
+                            }
+                            i++; // include the '>'
+                        } else if (htmlString[i] === '&') {
+                            // Fast forward HTML entities like '&nbsp;' safely
+                            let end = i;
+                            while (end < htmlString.length && end < i + 10 && htmlString[end] !== ';') {
+                                end++;
+                            }
+                            if (end < htmlString.length && htmlString[end] === ';') {
+                                i = end + 1;
+                            } else {
+                                i++;
+                            }
+                            charsAdded++;
+                        } else {
+                            i++;
+                            charsAdded++;
+                        }
+                    }
+
+                    container.innerHTML = htmlString.substring(0, i);
+                    if (i % 4 === 0) scrollToBottom();
+                }, speed);
+            });
+        }
+
+        // Add message element
+        function appendMessage(sender, text, logs = [], animate = false) {
+            const msgDiv = document.createElement("div");
+            msgDiv.className = `message ${sender}`;
+
+            let contentHtml = text;
+            if (sender === 'bot') {
+                try {
+                    contentHtml = typeof marked !== 'undefined' ? marked.parse(text) : text;
+                } catch (e) {
+                    console.error("Markdown parse failed:", e);
+                    contentHtml = text;
+                }
+            }
+
+            const bubbleDiv = document.createElement("div");
+            bubbleDiv.className = "bubble";
+
+            const logsStr = sender === 'bot' ? formatLogs(logs) : '';
+            const logsDiv = document.createElement("div");
+            logsDiv.innerHTML = logsStr;
+
+            msgDiv.appendChild(bubbleDiv);
+            if (logsStr && logsDiv.firstElementChild) {
+                msgDiv.appendChild(logsDiv.firstElementChild);
+            }
+
+            const indicator = document.getElementById("typingIndicator");
+            if (indicator && indicator.parentNode === chatBox) {
+                chatBox.insertBefore(msgDiv, indicator);
+            } else {
+                chatBox.appendChild(msgDiv);
+            }
+
+            if (sender === 'bot' && animate) {
+                typeWriterHTML(bubbleDiv, contentHtml, 15);
+            } else {
+                bubbleDiv.innerHTML = contentHtml;
+                scrollToBottom();
+            }
+        }
+
+        // Send Message
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            appendMessage('user', text);
+            userInput.value = "";
+
+            const indicator = document.getElementById("typingIndicator");
+            if (indicator) indicator.style.display = "flex";
+            scrollToBottom();
+
+            try {
+                const resp = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: text })
+                });
+
+                const data = await resp.json();
+                if (indicator) indicator.style.display = "none";
+
+                appendMessage('bot', data.reply, data.logs || [], true);
+
+                if (data.pending_approvals && data.pending_approvals.length > 0) {
+                    displayApprovalRequest(data.pending_approvals);
+                }
+            } catch (err) {
+                if (indicator) indicator.style.display = "none";
+                appendMessage('bot', "Server connection failed. Make sure backend is running.");
+            }
+        }
+
+        // Display Approval Request Widget
+        function displayApprovalRequest(approvals) {
+            const msgDiv = document.createElement("div");
+            msgDiv.className = "message bot";
+            // msgDiv.id = "approval-" + Date.now();
+            const containerId = "approval-" + Math.floor(Math.random() * 100000);
+            msgDiv.id = containerId;
+
+            let htmlStr = `<div class="bubble"><p><b>Action Approval Required</b></p>`;
+
+            approvals.forEach((app) => {
+                let badgeColor = "#ffcc00";
+                let title = "SYSTEM ACTION";
+                let details = "";
+                let bgStyle = "rgba(0,0,0,0.3)";
+
+                if (app.func_name === "emergency_shutdown") {
+                    badgeColor = "#ff4757";
+                    title = "EMERGENCY SHUTDOWN INITIATED";
+                    bgStyle = "linear-gradient(135deg, rgba(255, 71, 87, 0.2) 0%, rgba(0, 0, 0, 0.4) 100%)";
+                    details = `<div style="color:#ffcc00; font-weight:bold; margin-bottom:4px;">Target: <span style="color:#fff;">${app.func_args.factory_id.toUpperCase()}</span></div>
+                               <div style="color:#ff4757; font-size:0.85rem;">ACTION: Force shutdown and enter maintenance protocol.</div>`;
+                } else if (app.func_name === "set_plan_quantity") {
+                    badgeColor = "#00d2ff";
+                    title = "PRODUCTION PLAN OVERRIDE";
+                    bgStyle = "linear-gradient(135deg, rgba(0, 210, 255, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%)";
+                    details = `<div style="color:#8b92a5;">Target Factory: <span style="color:#fff; font-weight:bold;">${app.func_args.factory_id}</span></div>
+                               <div style="color:#8b92a5;">New Target Quantity: <span style="color:#00d2ff; font-weight:bold;">${app.func_args.quantity}</span> units</div>`;
+                } else if (app.func_name === "set_production_speed") {
+                    badgeColor = "#00e676";
+                    title = "KINETIC SPEED ADJUSTMENT";
+                    bgStyle = "linear-gradient(135deg, rgba(0, 230, 118, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%)";
+                    details = `<div style="color:#8b92a5;">Target Factory: <span style="color:#fff; font-weight:bold;">${app.func_args.factory_id}</span></div>
+                               <div style="color:#8b92a5;">InterArrival Time: <span style="color:#00e676; font-weight:bold;">${app.func_args.speed} SEC</span></div>`;
+                } else if (app.func_name === "restart_production") {
+                    badgeColor = "#00d2ff";
+                    title = "PRODUCTION RESTART";
+                    bgStyle = "linear-gradient(135deg, rgba(0, 210, 255, 0.15) 0%, rgba(0, 0, 0, 0.4) 100%)";
+                    details = `<div style="color:#8b92a5;">Target Factory: <span style="color:#fff; font-weight:bold;">${app.func_args.factory_id.toUpperCase()}</span></div>
+                               <div style="color:#00d2ff; font-size:0.85rem;">ACTION: Restore pre-shutdown plan quantity from backup.</div>`;
+                } else {
+                    details = `<pre style="margin: 0; font-size: 0.8rem; color: #aaa; white-space: pre-wrap;">${JSON.stringify(app.func_args, null, 2)}</pre>`;
+                }
+
+                htmlStr += `<div class="approval-item" style="background: ${bgStyle}; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid ${badgeColor}; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                    <div style="font-family: 'Inter', sans-serif; font-weight: 700; margin-bottom: 8px; color: ${badgeColor}; letter-spacing: 0.5px;">${title}</div>
+                    <div style="font-family: Consolas, monospace; font-size: 0.9rem;">${details}</div>
+                </div>`;
+            });
+
+            // Generate safe json string for onclick handler
+            const safeApprovals = JSON.stringify(approvals).replace(/"/g, '&quot;');
+
+            htmlStr += `<div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="submitApproval('${containerId}', ${safeApprovals}, true)" style="background: #00e676; color: #000; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; flex: 1; transition: all 0.2s;">Approve All</button>
+                <button onclick="submitApproval('${containerId}', ${safeApprovals}, false)" style="background: #ff4757; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; flex: 1; transition: all 0.2s;">Reject All</button>
+            </div></div>`;
+
+            msgDiv.innerHTML = htmlStr;
+
+            const indicator = document.getElementById("typingIndicator");
+            if (indicator && indicator.parentNode === chatBox) {
+                chatBox.insertBefore(msgDiv, indicator);
+            } else {
+                chatBox.appendChild(msgDiv);
+            }
+            scrollToBottom();
+        }
+
+        // Submit Approval decision to API
+        async function submitApproval(containerId, approvals, isApproved) {
+            // Disable buttons to avoid duplicate submissions
+            const container = document.getElementById(containerId);
+            if (container) {
+                const buttons = container.querySelectorAll('button');
+                buttons.forEach(b => {
+                    b.disabled = true;
+                    b.style.opacity = '0.5';
+                    b.style.cursor = 'not-allowed';
+                });
+            }
+
+            const approveItems = approvals.map(app => ({
+                tool_call_id: app.tool_call_id,
+                approved: isApproved
+            }));
+
+            // Re-show typing indicator
+            const indicator = document.getElementById("typingIndicator");
+            if (indicator) indicator.style.display = "flex";
+            scrollToBottom();
+
+            try {
+                const resp = await fetch("/api/approve", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ approvals: approveItems })
+                });
+
+                const data = await resp.json();
+                if (indicator) indicator.style.display = "none";
+
+                appendMessage('bot', data.reply, data.logs || [], true);
+
+                if (data.pending_approvals && data.pending_approvals.length > 0) {
+                    displayApprovalRequest(data.pending_approvals);
+                }
+            } catch (err) {
+                if (indicator) indicator.style.display = "none";
+                appendMessage('bot', "Server connection failed during approval submission.");
+            }
+        }
+
+        // Live updates for factory statuses
+        async function updateFactoryStatus() {
+            try {
+                const resp = await fetch('/api/status');
+                const data = await resp.json();
+                
+                const list = document.getElementById('factory-list');
+                const dot = document.getElementById('system-status-dot');
+                if(!list) return;
+
+                if(data.detail) {
+                    throw new Error("API returned detail: " + typeof data.detail === 'string' ? data.detail : "Error");
+                }
+
+                let html = '';
+                let hasIssues = false;
+
+                for(let f in data) {
+                    if (f === "detail") continue;
+                    const info = data[f];
+                    const short = f.split('_')[0].toLowerCase();
+                    const prodVal = _latestProd[short]?.[_prodMainKey[short]];
+                    const isDone  = info.running && info.maxnum > 0 && prodVal >= info.maxnum;
+                    const isOff   = !info.running;
+                    if (isOff) hasIssues = true;
+
+                    const color = isOff ? '#ff4757' : isDone ? '#00b4d8' : '#00e676';
+                    const text  = isOff ? 'MAINTENANCE' : isDone ? 'COMPLETED' : 'RUNNING';
+
+                    html += `
+                    <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.2);padding:8px 12px;border-radius:8px;border-left:3px solid ${color};">
+                        <strong style="color:#fff;text-transform:uppercase;">${f.split('_')[0]}</strong>
+                        <span style="font-size:0.72rem;color:${color};font-weight:bold;">${text}</span>
+                    </div>`;
+                }
+                list.innerHTML = html;
+                if(dot) {
+                    // Turn dot red if any factory is down, green otherwise
+                    dot.style.backgroundColor = hasIssues ? '#ff4757' : '#00e676';
+                    dot.style.boxShadow = hasIssues ? '0 0 10px #ff4757, 0 0 20px #ff4757' : '0 0 10px #00e676, 0 0 20px #00e676';
+                }
+            } catch(e) {
+                console.warn('Failed to fetch factory status', e);
+            }
+        }
+
+        // Initial fetch and start polling
+        updateFactoryStatus();
+        setInterval(updateFactoryStatus, 3000);
+
+        // ── Digital Twin (Redesigned) ──────────────────────────────────────────
+
+        // ── Truck animation ────────────────────────────────────────────────────
+        // Spawns a glowing dot that travels along an SVG <path> element.
+        function spawnTruck(pathId, color, durationMs) {
+            const path = document.getElementById(pathId);
+            const layer = document.getElementById('truck-layer');
+            if (!path || !layer) return;
+            const totalLen = path.getTotalLength();
+            const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            dot.setAttribute('r', '5');
+            dot.setAttribute('fill', color);
+            dot.style.filter = `drop-shadow(0 0 7px ${color}) drop-shadow(0 0 3px ${color})`;
+            layer.appendChild(dot);
+            const t0 = performance.now();
+            (function tick(now) {
+                const t = Math.min((now - t0) / durationMs, 1);
+                const pt = path.getPointAtLength(t * totalLen);
+                dot.setAttribute('cx', pt.x);
+                dot.setAttribute('cy', pt.y);
+                if (t < 1) requestAnimationFrame(tick);
+                else dot.remove();
+            })(performance.now());
+        }
+
+        // ── Flow line toggling ─────────────────────────────────────────────────
+        // done = { fa, fb, fc, fd } booleans — completed factories skip their routes
+        function setFlowLines(b1, b2, b3, b4, done) {
+            done = done || {};
+            document.querySelectorAll('.tflow').forEach(el => el.classList.remove('on', 'slow'));
+
+            // FA dispatch (only if FA not done)
+            if (!done.fa) {
+                if (b1 === 1) document.getElementById('tfl-fa-fb')?.classList.add('on');
+                else          document.getElementById('tfl-fa-fc')?.classList.add('on');
+            }
+
+            // FB→FC always, but only if FB not done
+            if (!done.fb) {
+                document.getElementById('tfl-fb-fc')?.classList.add('on');
+                if (b2 === 1) document.getElementById('tfl-fb-fd')?.classList.add('on');
+            }
+
+            // FC dispatch, only if FC not done
+            if (!done.fc) {
+                if (b3 === 1) document.getElementById('tfl-fc-fd')?.classList.add('on');
+            }
+        }
+
+        // ── Truck spawning per route state ─────────────────────────────────────
+        function spawnTrucksForState(b1, b2, b3, done) {
+            done = done || {};
+            const FWD = 3800;
+            if (!done.fa) {
+                if (b1 === 1) spawnTruck('tfl-fa-fb', '#00f0ff', FWD);
+                else          spawnTruck('tfl-fa-fc', '#00f0ff', FWD);
+            }
+            if (!done.fb) {
+                setTimeout(() => spawnTruck('tfl-fb-fc', '#5b9bff', FWD), 600);
+            }
+            if (!done.fc && b3 === 1) {
+                setTimeout(() => spawnTruck('tfl-fc-fd', '#ffea00', FWD), 1200);
+            }
+        }
+
+        // ── Side-panel helpers ─────────────────────────────────────────────────
+        function updateBranchCards(b1, b2, b3, b4, p23q, threshold) {
+            const b1card = document.getElementById('side-b1');
+            if (b1card) {
+                b1card.querySelector('.bc-route').textContent  = b1 === 1 ? 'FA → FB  (P1)' : 'FA → FC  (P1)';
+                b1card.querySelector('.bc-reason').textContent = b1 === 1 ? 'cycle % 3 ≠ 2 → FB' : 'cycle % 3 = 2 → FC redirect';
+            }
+            const b3card = document.getElementById('side-b3');
+            if (b3card) {
+                b3card.className = `branch-card ${b3 === 1 ? 'c-p23' : 'c-ret'}`;
+                b3card.querySelector('.bc-route').textContent  = b3 === 1 ? 'FC → FD  (P23)' : 'FC → FA  (empty)';
+                b3card.querySelector('.bc-reason').textContent = b3 === 1
+                    ? `P23 queue ${Math.round(p23q)} ≥ threshold ${threshold}`
+                    : `P23 queue ${Math.round(p23q)} < threshold ${threshold}`;
+            }
+        }
+
+        function updateQueueBars(p1, p2, p23) {
+            const set = (key, val, max) => {
+                const fill = document.getElementById('qbar-fill-' + key);
+                const valEl = document.getElementById('qbar-val-' + key);
+                if (fill)  fill.style.width = Math.min(100, (val / max) * 100) + '%';
+                if (valEl) valEl.textContent = Math.round(val);
+            };
+            set('p1',  p1,  10);
+            set('p2',  p2,  8);
+            set('p23', p23, 8);
+        }
+
+        // ── Virtual simulation (mirrors branch_controller.py exactly) ──────────
+        const vSim = {
+            cycle: 0,
+            q: { p1: 4.0, p2: 3.0, p23: 0.8 },
+            PERIOD: 3,       // BRANCH1_PERIOD
+            THRESH: 2,       // P23_THRESHOLD
+            isLive: false,
+
+            decide() {
+                const b1 = (this.cycle % this.PERIOD === 2) ? 2 : 1;
+                const b2 = 2;  // always FB→FC
+                const b3 = this.q.p23 >= this.THRESH ? 1 : 2;
+                const b4 = 2;  // always FD→FC→FA
+                return { b1, b2, b3, b4 };
+            },
+
+            // Simple queue model: production adds, dispatch removes
+            advanceQueues(b1, b3) {
+                this.q.p1  = Math.max(0, Math.min(10, this.q.p1  + 1.4 - (b1 === 1 ? 1.2 : 0.9)));
+                this.q.p2  = Math.max(0, Math.min(8,  this.q.p2  + 1.0 - 1.0));   // b2 always active
+                this.q.p23 = Math.max(0, Math.min(8,  this.q.p23 + 0.75 - (b3 === 1 ? 2.0 : 0)));
+            },
+
+            tick() {
+                const r = this.decide();
+                this.advanceQueues(r.b1, r.b3);
+                this.cycle++;
+                return r;
+            }
+        };
+
+        // ── Apply everything for one tick ──────────────────────────────────────
+        let _prevB3 = -1;
+        let _twinInterval = null;
+
+        function applyTwinState(b1, b2, b3, b4, queues, fromLive) {
+            setFlowLines(b1, b2, b3, b4, _doneFact);
+            spawnTrucksForState(b1, b2, b3, _doneFact);
+            updateBranchCards(b1, b2, b3, b4, queues.p23, vSim.THRESH);
+            updateQueueBars(queues.p1, queues.p2, queues.p23);
+
+            _prevB3 = b3;
+
+            // Mode badge
+            const badge = document.getElementById('twin-mode-badge');
+            if (badge) {
+                badge.textContent = fromLive ? 'LIVE' : 'VIRTUAL SIM';
+                badge.className = 'twin-badge' + (fromLive ? ' live' : '');
+            }
+
+            const ts = document.getElementById('twin-updated');
+            if (ts) ts.textContent = (fromLive ? 'Live ' : 'Simulated ') + new Date().toLocaleTimeString('en-GB');
+        }
+
+        // ── applyFactoryStatus / applyProduction ──────────────────────────────
+        // _latestProd stores current production counts for completion detection
+        let _latestProd = {};
+        // _doneFact stores which factories have reached their plan: { fa, fb, fc, fd }
+        let _doneFact = {};
+
+        // Main production field per factory (matches /api/status key suffix)
+        const _prodMainKey = { fa:'p1', fb:'p2', fc:'p3', fd:'p4' };
+
+        function applyFactoryStatus(statusData) {
+            const map = { fa_p1:'fa', fb_p2:'fb', fc_p3:'fc', fd_p4:'fd' };
+            const subMap = { fa:'P1', fb:'P2·P12', fc:'P3·P13·P23', fd:'P4·P234' };
+
+            _doneFact = {};
+            for (const [key, short] of Object.entries(map)) {
+                const info = statusData[key];
+                if (!info) continue;
+
+                const ring  = document.getElementById('ring-' + short);
+                const card  = document.getElementById('card-' + short);
+                const sub   = document.getElementById('sub-' + short);
+                const qtyEl = document.getElementById('pv-' + short + '-qty');
+
+                // Detect completion: running AND production >= plan
+                const prodVal = _latestProd[short]?.[_prodMainKey[short]];
+                const isDone  = info.running && info.maxnum > 0 && prodVal >= info.maxnum;
+                const isOff   = !info.running;
+
+                _doneFact[short] = isDone;
+
+                ring?.classList.remove('stopped', 'completed');
+                card?.classList.remove('stopped', 'completed');
+
+                if (isOff) {
+                    ring?.classList.add('stopped');
+                    card?.classList.add('stopped');
+                    if (sub) { sub.style.color='#ff4757'; sub.style.fontWeight='bold'; sub.innerText='OFFLINE'; }
+                } else if (isDone) {
+                    ring?.classList.add('completed');
+                    card?.classList.add('completed');
+                    if (sub) { sub.style.color='#00b4d8'; sub.style.fontWeight='bold'; sub.innerText='DONE'; }
+                } else {
+                    if (sub) { sub.style.color='#8b92a5'; sub.style.fontWeight='normal'; sub.innerText=subMap[short]; }
+                }
+
+                if (qtyEl) {
+                    qtyEl.textContent = info.maxnum ?? '—';
+                    qtyEl.style.color = isOff ? '#ff4757' : '#ffea00';
+                }
+            }
+        }
+
+        function applyProduction(prod) {
+            _latestProd = prod || {};
+            const set = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = (val !== undefined && val !== null) ? val : '—';
+            };
+            set('pv-fa-p1',   prod?.fa?.p1);
+            set('pv-fb-p2',   prod?.fb?.p2);
+            set('pv-fb-p12',  prod?.fb?.p12);
+            set('pv-fc-p3',   prod?.fc?.p3);
+            set('pv-fc-p13',  prod?.fc?.p13);
+            set('pv-fc-p23',  prod?.fc?.p23);
+            set('pv-fd-p4',   prod?.fd?.p4);
+            set('pv-fd-p234', prod?.fd?.p234);
+        }
+
+        // ── Main refresh: try live API first, fall back to virtual sim ─────────
+        async function refreshTwin() {
+            let usedLive = false;
+            try {
+                const [logResp, twinResp] = await Promise.all([
+                    fetch('/api/logistics-log').catch(() => null),
+                    fetch('/api/twin-data').catch(() => null)
+                ]);
+
+                // Process twin data FIRST so _doneFact / _latestProd are current
+                // before applyTwinState reads them to decide which lines to animate.
+                if (twinResp?.ok) {
+                    const td = await twinResp.json();
+                    applyProduction(td.production  || {});
+                    applyFactoryStatus(td.status     || {});
+                }
+
+                if (logResp?.ok) {
+                    const entries = await logResp.json();
+                    if (Array.isArray(entries) && entries.length > 0) {
+                        const latest = entries[0];
+                        const r = latest.routes || {};
+                        const b1 = r.branch1?.value ?? 1;
+                        const b2 = r.branch2?.value ?? 2;
+                        const b3 = r.branch3?.value ?? 1;
+                        const b4 = r.branch4?.value ?? 2;
+                        const lq = latest.queues || {};
+                        // Sync virtual sim queues with live data
+                        vSim.q.p1  = lq.p1  ?? vSim.q.p1;
+                        vSim.q.p2  = lq.p2  ?? vSim.q.p2;
+                        vSim.q.p23 = lq.p23 ?? vSim.q.p23;
+                        vSim.isLive = true;
+                        applyTwinState(b1, b2, b3, b4, vSim.q, true);
+                        usedLive = true;
+                    }
+                }
+            } catch(e) { /* fall through to virtual */ }
+
+            if (!usedLive) {
+                vSim.isLive = false;
+                const r = vSim.tick();
+                applyTwinState(r.b1, r.b2, r.b3, r.b4, vSim.q, false);
+            }
+        }
+
+        // ── Hook tab switching ─────────────────────────────────────────────────
+        const _switchTabPrev = switchTab;
+        switchTab = function(tabId, el) {
+            _switchTabPrev(tabId, el);
+            if (tabId === 'twin') {
+                refreshTwin();
+                if (!_twinInterval) _twinInterval = setInterval(refreshTwin, 3000);
+            } else {
+                clearInterval(_twinInterval); _twinInterval = null;
+            }
+        };
+
+        // ── Logistics Log ──────────────────────────────────────────────────────
+        let _logClearedBefore = null;
+
+        function renderLogEntry(entry) {
+            const hasChange = Object.keys(entry.changes || {}).length > 0;
+            const q = entry.routes ? (entry.queues || {}) : (entry.queues || {});
+            const r = entry.routes || {};
+            const b1 = r.branch1?.value;
+            const b3 = r.branch3?.value;
+
+            const p1v = q.p1 ?? 0, p2v = q.p2 ?? 0, p23v = q.p23 ?? 0;
+            const r1cls = b1 === 2 ? 'r1 alt' : 'r1';
+            const r1txt = b1 === 1 ? 'FA→FB' : b1 === 2 ? 'FA→FC' : '—';
+            const r3cls = b3 === 2 ? 'r3 ret' : 'r3';
+            const r3txt = b3 === 1 ? 'FC→FD' : b3 === 2 ? 'FC→FA' : '—';
+
+            return `<div class="loge">
+                <span class="loge-time">${entry.time}</span>
+                <span class="loge-q">P1:<b>${p1v}</b> P2:<b>${p2v}</b> P23:<b class="${p23v >= 2 ? 'hi' : ''}">${p23v}</b></span>
+                <span class="loge-r"><span class="${r1cls}">${r1txt}</span><span style="color:#2a3040">·</span><span class="${r3cls}">${r3txt}</span></span>
+            </div>`;
+        }
+
+        async function refreshLogView() {
+            const list = document.getElementById('logistics-list');
+            if (!list) return;
+            try {
+                const resp = await fetch('/api/logistics-log');
+                const entries = await resp.json();
+                if (!Array.isArray(entries) || entries.length === 0) {
+                    list.innerHTML = '<div style="text-align:center;color:var(--text-muted);margin-top:60px;font-size:0.9rem;">Waiting for branch_controller to start…</div>';
+                    document.getElementById('log-count').textContent = '';
+                    return;
+                }
+                const filtered = _logClearedBefore
+                    ? entries.filter(e => e.time > _logClearedBefore)
+                    : entries;
+
+                list.innerHTML = filtered.map(renderLogEntry).join('');
+                const total = filtered.length;
+                const changes = filtered.filter(e => Object.keys(e.changes||{}).length > 0).length;
+                document.getElementById('log-count').textContent =
+                    `${total} entries · ${changes} route changes`;
+            } catch (e) {
+                console.warn('Logistics log fetch failed', e);
+            }
+        }
+
+        function clearLogView() {
+            // Mark current time so older entries are hidden (doesn't delete the file)
+            _logClearedBefore = new Date().toISOString().replace('T', ' ').slice(0, 19);
+            refreshLogView();
+        }
+
+        // Poll logistics log every 5s, only when the tab is visible
+        let _logInterval = null;
+        const _origSwitchTab = switchTab;
+        switchTab = function(tabId, el) {
+            _origSwitchTab(tabId, el);
+            if (tabId === 'logistics') {
+                refreshLogView();
+                if (!_logInterval) _logInterval = setInterval(refreshLogView, 5000);
+            } else {
+                clearInterval(_logInterval);
+                _logInterval = null;
+            }
+        };
+
+    </script>
+</body>
+
+</html>

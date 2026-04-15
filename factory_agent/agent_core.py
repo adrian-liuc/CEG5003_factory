@@ -15,12 +15,11 @@ def init_session():
     return [{"role": "system", "content": system_prompt}]
 
 def count_tokens(messages):
-    """估算 token 数（中文≈1.5，其他≈0.5）"""
+    """估算 token 数（字符数 × 0.1）"""
     total = 0
     for msg in messages:
         content = msg.get("content", "") or ""
-        chinese = sum(1 for c in content if '\u4e00' <= c <= '\u9fff')
-        total += int(chinese * 1.5 + (len(content) - chinese) * 0.5)
+        total += int(len(content) * 0.1)
     return total
 
 def summarize_history(messages):
